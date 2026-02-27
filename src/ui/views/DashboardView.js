@@ -28,7 +28,7 @@ export class DashboardView {
           <div class="panel-header">
             <span class="panel-title" id="cluster-label">${t('web.title')}: ${t('web.cluster')}-7</span>
             <div style="display:flex;gap:8px;align-items:center">
-              <select class="view-mode-select">
+              <select class="view-mode-select" id="galactic-view-mode">
                 <option value="node-graph">${t('web.nodeGraph')}</option>
                 <option value="heatmap">${t('web.heatmap')}</option>
               </select>
@@ -53,6 +53,13 @@ export class DashboardView {
     this.cosmicParams = new CosmicParameters(right);
     this.timeline = new EpochTimeline(bottom);
     this.nodeGraph = new NodeGraph(galacticContent);
+
+    const viewModeSelect = this.el.querySelector('#galactic-view-mode');
+    if (viewModeSelect) {
+      viewModeSelect.addEventListener('change', () => {
+        this.nodeGraph.setViewMode(viewModeSelect.value);
+      });
+    }
 
     this._updateNodeGraph();
   }

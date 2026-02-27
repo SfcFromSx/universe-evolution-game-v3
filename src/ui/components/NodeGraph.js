@@ -52,6 +52,7 @@ export class NodeGraph {
     this._offsetStart = { x: 0, y: 0 };
     this._cosmicAge = 0;
     this._galaxyGeneration = 0;
+    this._viewMode = 'node-graph';
     this._protoParticles = this._initProtoParticles();
 
     this._resizeHandler = () => this._resize();
@@ -236,6 +237,10 @@ export class NodeGraph {
     this._offset.y += (afterZoom.y - beforeZoom.y) * this.height * this._zoom;
   }
 
+  setViewMode(mode) {
+    this._viewMode = mode === 'heatmap' ? 'heatmap' : 'node-graph';
+  }
+
   render(dt) {
     if (!this._isActive || !this.ctx) return;
 
@@ -250,6 +255,11 @@ export class NodeGraph {
 
     if (this.galaxies.length === 0) {
       this._renderPreGalaxyState(ctx);
+      return;
+    }
+
+    if (this._viewMode === 'heatmap') {
+      this._renderHeatmap(ctx);
       return;
     }
 
@@ -480,6 +490,81 @@ export class NodeGraph {
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.width, this.height);
+  }
+
+  _renderHeatmap(ctx) {
+    const gridRes = 48;
+    const grid = new Float64Array(gridRes * gridRes);
+
+    for (const g of this.galaxies) {
+      const gx = Math.max(0, Math.min(1, g.x));
+      const gy = Math.max(0, Math.min(1, g.y));
+      const weight = Math.log10(Math.max(1, (g.starCount || 1e6)));
+      const ix = Math.floor(gx * gridRes) % gridRes;
+      const iy = Math.floor(gy * gridRes) % gridRes;
+      grid[iy * gridRes + ix] += weight;
+      const spread = 1;
+      for (let dy = -spread; dy <= spread; dy++) {
+        for (let dx = -spread; dx <= spread; dx++) {
+          const nx = ix + dx;
+          const ny = iy + dy;
+          if (nx >= 0 && nx < gridRes && ny >= 0 && ny < gridRes && (dx !== 0 || dy !== 0)) {
+            const falloff = 1 / (1 + Math.sqrt(dx * dx + dy * dy));
+            grid[ny * gridRes + nx] += weight * falloff * 0.4;
+          }
+        }
+      }
+    }
+
+    let maxVal = 0;
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i] > maxVal) maxVal = grid[i];
+    }
+    if (maxVal <= 0) maxVal = 1;
+
+    const cellW = (this.width * this._zoom) / gridRes;
+    const cellH = (this.height * this._zoom) / gridRes;
+
+    for (let iy = 0; iy < gridRes; iy++) {
+      for (let ix = 0; ix < gridRes; ix++) {
+        const val = grid[iy * gridRes + ix];
+        if (val <= 0) continue;
+        const t = Math.min(1, val / maxVal);
+        const pos = this._toScreen(ix / gridRes, iy / gridRes);
+        const next = this._toScreen((ix + 1) / gridRes, (iy + 1) / gridRes);
+        const w = Math.ceil(next.x - pos.x) + 1;
+        const h = Math.ceil(next.y - pos.y) + 1;
+        if (w < 1 || h < 1) continue;
+        let r, g, b, a;
+        if (t < 0.25) {
+          const s = t / 0.25;
+          r = 5 + s * 15;
+          g = 20 + s * 60;
+          b = 50 + s * 120;
+          a = 0.4 + s * 0.5;
+        } else if (t < 0.55) {
+          const s = (t - 0.25) / 0.3;
+          r = 20 + s * 0;
+          g = 80 + s * 149;
+          b = 170 + s * 85;
+          a = 0.9;
+        } else if (t < 0.85) {
+          const s = (t - 0.55) / 0.3;
+          r = 20 + s * 220;
+          g = 229 + s * 26;
+          b = 255 + s * (-255);
+          a = 0.95;
+        } else {
+          const s = (t - 0.85) / 0.15;
+          r = 240 + s * 15;
+          g = 255;
+          b = 0 + s * 255;
+          a = 0.95;
+        }
+        ctx.fillStyle = `rgba(${r|0}, ${g|0}, ${b|0}, ${a})`;
+        ctx.fillRect(Math.floor(pos.x), Math.floor(pos.y), w, h);
+      }
+    }
   }
 
   _renderEdges(ctx) {
