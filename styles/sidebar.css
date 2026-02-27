@@ -193,6 +193,23 @@
   font-weight: 600;
 }
 
+/* Language toggle button */
+.sidebar-lang-btn {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.sidebar-lang-label {
+  font-size: clamp(10px, 0.9vw, 13px);
+  font-weight: 700;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.sidebar-lang-btn:hover .sidebar-lang-label {
+  color: var(--accent-cyan);
+}
+
 /* Mobile responsive - hide sidebar on very small screens */
 @media (max-width: 480px) {
   .sidebar {

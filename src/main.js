@@ -6,6 +6,9 @@ import { App } from './ui/App.js';
 import { ParticleSystem } from './rendering/ParticleSystem.js';
 import { animations } from './rendering/Animations.js';
 import { getQuoteForEpoch } from './data/philosophicalQuotes.js';
+import { t, getLang } from './core/i18n.js';
+
+document.documentElement.lang = getLang();
 
 const universe = new Universe();
 const app = new App();
@@ -42,8 +45,7 @@ function init() {
   });
 
   eventBus.on('simulation:complete', () => {
-    showNotification('Simulation Complete',
-      'Your universe has reached the present era. Adjust parameters and run again, or explore your results.');
+    showNotification(t('notify.simComplete'), t('notify.simCompleteBody'));
   });
 
   eventBus.on('simulation:reset', () => {

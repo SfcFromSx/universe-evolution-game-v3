@@ -64,7 +64,7 @@
 }
 
 .entropy-chart::before {
-  content: 'TOTAL ENTROPY';
+  content: attr(data-label);
   position: absolute;
   top: 4px;
   left: 0;
@@ -75,7 +75,7 @@
 }
 
 .entropy-chart::after {
-  content: 'S/kB vs BYA';
+  content: attr(data-unit);
   position: absolute;
   top: 4px;
   right: 0;

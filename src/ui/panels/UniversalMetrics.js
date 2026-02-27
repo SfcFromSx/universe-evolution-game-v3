@@ -3,6 +3,7 @@ import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { COLORS } from '../../data/constants.js';
 import { rgba } from '../../utils/color.js';
+import { t } from '../../core/i18n.js';
 
 export class UniversalMetrics {
   constructor(container) {
@@ -21,17 +22,17 @@ export class UniversalMetrics {
   _build() {
     this.el.innerHTML = `
       <div class="panel-header">
-        <span class="panel-title">Universal Metrics</span>
+        <span class="panel-title">${t('metrics.title')}</span>
         <button class="panel-menu">···</button>
       </div>
-      <div class="entropy-chart"></div>
+      <div class="entropy-chart" data-label="${t('metrics.totalEntropy')}" data-unit="${t('metrics.entropyUnit')}"></div>
       <div class="metrics-grid">
         <div class="metric-card">
-          <div class="metric-card-label">Thermodynamic State</div>
+          <div class="metric-card-label">${t('metrics.thermoState')}</div>
           <canvas class="thermo-canvas" width="100" height="40"></canvas>
         </div>
         <div class="metric-card">
-          <div class="metric-card-label">CMB Fluctuation</div>
+          <div class="metric-card-label">${t('metrics.cmbFluctuation')}</div>
           <canvas class="cmb-canvas" width="100" height="40"></canvas>
         </div>
       </div>
@@ -59,8 +60,8 @@ export class UniversalMetrics {
 
   _initGraphData() {
     const data = [];
-    for (let t = 14; t >= 0; t -= 0.5) {
-      const cosmicAge = 14.1 - t;
+    for (let ti = 14; ti >= 0; ti -= 0.5) {
+      const cosmicAge = 14.1 - ti;
       const fraction = cosmicAge / 14.1;
       const entropy = Math.log10(Math.max(Math.pow(2.725 / Math.max(fraction, 1e-10), 3), 1));
       data.push({ x: cosmicAge, y: entropy });
@@ -173,16 +174,15 @@ export class UniversalMetrics {
     const recombinationAge = 0.38;
 
     if (cosmicAge < recombinationAge) {
-      // Pre-recombination: hot plasma glow
       const plasmaIntensity = Math.min(1, cosmicAge / recombinationAge);
-      const time = performance.now() / 2000;
+      const now = performance.now() / 2000;
 
       for (let py = 0; py < h; py += 2) {
         for (let px = 0; px < w; px += 2) {
           const sx = px / dpr;
           const sy = py / dpr;
-          const flicker = 0.6 + 0.4 * Math.sin(sx * 0.3 + time * 2) *
-                          Math.cos(sy * 0.4 - time * 1.5);
+          const flicker = 0.6 + 0.4 * Math.sin(sx * 0.3 + now * 2) *
+                          Math.cos(sy * 0.4 - now * 1.5);
           const val = flicker * plasmaIntensity * 200;
           const r = Math.min(255, val * 1.2);
           const g = val * 0.4;
@@ -192,7 +192,6 @@ export class UniversalMetrics {
         }
       }
     } else {
-      // Post-recombination: CMB anisotropy pattern
       const cmbStrength = Math.min(1, (cosmicAge - recombinationAge) / 0.3);
       const imageData = ctx.createImageData(w, h);
       for (let py = 0; py < h; py++) {

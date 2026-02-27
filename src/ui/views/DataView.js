@@ -1,6 +1,7 @@
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { formatCompact } from '../../utils/format.js';
+import { t } from '../../core/i18n.js';
 
 export class DataView {
   constructor(container) {
@@ -21,8 +22,8 @@ export class DataView {
     this.el.innerHTML = `
       <div class="panel" style="height:100%;display:flex;flex-direction:column">
         <div class="panel-header">
-          <span class="panel-title">Galaxy Catalog</span>
-          <input type="text" placeholder="Search galaxies..."
+          <span class="panel-title">${t('data.title')}</span>
+          <input type="text" placeholder="${t('data.search')}"
             style="background:var(--bg-secondary);border:1px solid var(--border-primary);color:var(--text-primary);padding:5px 10px;border-radius:6px;font-size:12px;width:200px;outline:none"
             id="galaxy-search">
         </div>
@@ -53,18 +54,18 @@ export class DataView {
 
     const container = this.el.querySelector('#table-container');
     if (filtered.length === 0) {
-      container.innerHTML = `<div style="color:var(--text-tertiary);text-align:center;padding:40px">No galaxies formed yet. Advance the simulation timeline.</div>`;
+      container.innerHTML = `<div style="color:var(--text-tertiary);text-align:center;padding:40px">${t('data.noGalaxies')}</div>`;
       return;
     }
 
     const cols = [
-      { key: 'name', label: 'Name' },
-      { key: 'type', label: 'Type' },
-      { key: 'mass', label: 'Mass (M☉)', fmt: formatCompact },
-      { key: 'starCount', label: 'Stars', fmt: formatCompact },
-      { key: 'redshift', label: 'Redshift', fmt: v => v.toFixed(3) },
-      { key: 'metallicity', label: 'Metallicity', fmt: v => (v * 100).toFixed(2) + '%' },
-      { key: 'age', label: 'Age (Byr)', fmt: v => v.toFixed(1) },
+      { key: 'name', label: t('data.colName') },
+      { key: 'type', label: t('data.colType') },
+      { key: 'mass', label: t('data.colMass'), fmt: formatCompact },
+      { key: 'starCount', label: t('data.colStars'), fmt: formatCompact },
+      { key: 'redshift', label: t('data.colRedshift'), fmt: v => v.toFixed(3) },
+      { key: 'metallicity', label: t('data.colMetallicity'), fmt: v => (v * 100).toFixed(2) + '%' },
+      { key: 'age', label: t('data.colAge'), fmt: v => v.toFixed(1) },
     ];
 
     let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">';

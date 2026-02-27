@@ -3,14 +3,15 @@ import { eventBus } from '../../core/EventBus.js';
 import { EPOCHS } from '../../data/epochs.js';
 import { clamp } from '../../utils/math.js';
 import { formatTimeBYA } from '../../utils/format.js';
+import { t } from '../../core/i18n.js';
 
 const EPOCH_CARDS = [
-  { id: 0, name: 'Planck Epoch', time: 'Historical: 1 tick', stat: '∞', bya: 14.1 },
-  { id: 1, name: 'Recombination', time: 'Historical: 380,000 BYA', stat: '300k', bya: 13.7 },
-  { id: 2, name: 'First Stars', time: 'Historical: 150,000 BYA', stat: '1B', bya: 13.1 },
-  { id: 3, name: 'Galaxy Formation', time: 'Historical: 1B BYA', stat: '5B', bya: 9.1 },
-  { id: 4, name: 'Stellar Evolution', time: 'Historical: 5B BYA', stat: '10B', bya: 4.1 },
-  { id: 5, name: 'Present Era', time: 'Historical: 14.1 BYA', stat: '14.1B', bya: 0 },
+  { id: 0, nameKey: 'epoch.planck', timeKey: 'epoch.planck.time', stat: '∞', bya: 14.1 },
+  { id: 1, nameKey: 'epoch.recombination', timeKey: 'epoch.recombination.time', stat: '300k', bya: 13.7 },
+  { id: 2, nameKey: 'epoch.firstStars', timeKey: 'epoch.firstStars.time', stat: '1B', bya: 13.1 },
+  { id: 3, nameKey: 'epoch.galaxyFormation', timeKey: 'epoch.galaxyFormation.time', stat: '5B', bya: 9.1 },
+  { id: 4, nameKey: 'epoch.stellarEvolution', timeKey: 'epoch.stellarEvolution.time', stat: '10B', bya: 4.1 },
+  { id: 5, nameKey: 'epoch.presentEra', timeKey: 'epoch.presentEra.time', stat: '14.1B', bya: 0 },
 ];
 
 export class EpochTimeline {
@@ -28,7 +29,7 @@ export class EpochTimeline {
     this.el.innerHTML = `
       <div class="timeline-header">
         <div class="timeline-title-section">
-          <span class="timeline-title">Epoch Chronology: Big Bang (0) → 14.1 BYA (Present)</span>
+          <span class="timeline-title">${t('timeline.title')}</span>
           <div class="time-counter">
             <span class="time-counter-label">T-</span>
             <span class="time-counter-value" id="time-counter">14.1000</span>
@@ -36,8 +37,8 @@ export class EpochTimeline {
           </div>
         </div>
         <div class="timeline-controls">
-          <button class="btn btn-icon" id="timeline-reset" title="Reset">⟲</button>
-          <button class="btn btn-icon timeline-play-btn" id="timeline-play" title="Play/Pause">▶</button>
+          <button class="btn btn-icon" id="timeline-reset" title="${t('timeline.reset')}">⟲</button>
+          <button class="btn btn-icon timeline-play-btn" id="timeline-play" title="${t('timeline.playPause')}">▶</button>
           <div class="timeline-speed" id="timeline-speed">1x</div>
         </div>
       </div>
@@ -48,22 +49,22 @@ export class EpochTimeline {
           </div>
           <div class="timeline-markers" id="timeline-markers"></div>
           <div class="timeline-scrubber" id="timeline-scrubber">
-            <div class="timeline-scrubber-label" id="scrubber-label">PRESENT</div>
+            <div class="timeline-scrubber-label" id="scrubber-label">${t('timeline.present')}</div>
           </div>
-          <div class="present-marker">PRESENT</div>
+          <div class="present-marker">${t('timeline.present')}</div>
         </div>
         <div class="timeline-metrics">
           <div class="timeline-metric">
-            <span class="metric-label">Current Time</span>
+            <span class="metric-label">${t('timeline.currentTime')}</span>
             <span class="metric-value" id="current-time">14.1 BYA</span>
           </div>
           <div class="timeline-metric">
-            <span class="metric-label">Progress</span>
+            <span class="metric-label">${t('timeline.progress')}</span>
             <span class="metric-value" id="progress-percent">0%</span>
           </div>
           <div class="timeline-metric">
-            <span class="metric-label">Epoch</span>
-            <span class="metric-value" id="current-epoch">Present Era</span>
+            <span class="metric-label">${t('timeline.epoch')}</span>
+            <span class="metric-value" id="current-epoch">${t('epoch.presentEra')}</span>
           </div>
         </div>
       </div>
@@ -110,8 +111,8 @@ export class EpochTimeline {
       el.dataset.bya = card.bya;
       el.innerHTML = `
         <div class="epoch-card-header">
-          <div class="epoch-card-name">${card.name}</div>
-          <div class="epoch-card-time">${card.time}</div>
+          <div class="epoch-card-name">${t(card.nameKey)}</div>
+          <div class="epoch-card-time">${t(card.timeKey)}</div>
         </div>
         <div class="epoch-card-stat">${card.stat}</div>
       `;
@@ -161,7 +162,6 @@ export class EpochTimeline {
       scrubber.classList.remove('dragging');
     });
 
-    // Speed control click
     const speedBtn = this.el.querySelector('#timeline-speed');
     speedBtn.addEventListener('click', () => {
       const speeds = [1, 2, 5, 10, 50, 100];
@@ -201,16 +201,13 @@ export class EpochTimeline {
 
     if (fill) fill.style.width = pct + '%';
     if (scrubber) scrubber.style.left = pct + '%';
-    if (label) label.textContent = timeBYA <= 0.01 ? 'PRESENT' : formatTimeBYA(timeBYA);
+    if (label) label.textContent = timeBYA <= 0.01 ? t('timeline.present') : formatTimeBYA(timeBYA);
 
-    // Update time counter near title
     if (timeCounter) timeCounter.textContent = timeBYA.toFixed(4);
 
-    // Update metrics
-    if (currentTimeEl) currentTimeEl.textContent = timeBYA <= 0.01 ? 'PRESENT' : timeBYA.toFixed(2) + ' BYA';
+    if (currentTimeEl) currentTimeEl.textContent = timeBYA <= 0.01 ? t('timeline.present') : timeBYA.toFixed(2) + ' BYA';
     if (progressEl) progressEl.textContent = Math.round(pct) + '%';
 
-    // Find current epoch card index
     let currentCardIndex = 0;
     for (let i = EPOCH_CARDS.length - 1; i >= 0; i--) {
       if (timeBYA <= EPOCH_CARDS[i].bya) {
@@ -218,9 +215,8 @@ export class EpochTimeline {
         break;
       }
     }
-    if (epochEl) epochEl.textContent = EPOCH_CARDS[currentCardIndex].name;
+    if (epochEl) epochEl.textContent = t(EPOCH_CARDS[currentCardIndex].nameKey);
 
-    // Update markers
     const markers = this.el.querySelectorAll('.timeline-marker');
     markers.forEach((marker) => {
       const markerPct = parseFloat(marker.dataset.position);
@@ -228,7 +224,6 @@ export class EpochTimeline {
       marker.classList.toggle('active', Math.abs(pct - markerPct) < 5);
     });
 
-    // Update cards - only the current epoch is active
     const cards = this.el.querySelectorAll('.epoch-card');
     cards.forEach((card, i) => {
       const isPast = timeBYA < parseFloat(card.dataset.bya);
@@ -236,11 +231,9 @@ export class EpochTimeline {
       card.classList.toggle('past', isPast && i !== currentCardIndex);
     });
 
-    // Update play button state
     const isPlaying = store.get('simulation.isPlaying');
     this._updatePlayButton(isPlaying);
 
-    // Update speed display
     const speed = store.get('simulation.speed');
     const speedEl = this.el.querySelector('#timeline-speed');
     if (speedEl) speedEl.textContent = speed + 'x';

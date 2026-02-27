@@ -1,6 +1,7 @@
 import { store } from '../../core/StateStore.js';
 import { QUOTES_BY_EPOCH, ACHIEVEMENTS } from '../../data/philosophicalQuotes.js';
 import { EPOCHS } from '../../data/epochs.js';
+import { t } from '../../core/i18n.js';
 
 export class InsightsView {
   constructor(container) {
@@ -18,9 +19,10 @@ export class InsightsView {
     for (const epoch of EPOCHS) {
       const quotes = QUOTES_BY_EPOCH[epoch.id];
       if (!quotes) continue;
+      const epochName = t(`epochData.${epoch.id}`);
       quotesHtml += `
         <div class="panel" style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:${epoch.color};margin-bottom:12px">${epoch.name}</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:${epoch.color};margin-bottom:12px">${epochName}</div>
           ${quotes.map(q => `
             <div style="margin-bottom:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid ${epoch.color}">
               <div style="font-style:italic;color:var(--text-primary);font-size:14px;line-height:1.6">"${q.text}"</div>
@@ -33,8 +35,8 @@ export class InsightsView {
 
     let achievementsHtml = ACHIEVEMENTS.map(a => `
       <div style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;padding:14px;text-align:center">
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--accent-cyan);margin-bottom:4px">${a.name}</div>
-        <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">${a.condition}</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--accent-cyan);margin-bottom:4px">${t(`achieve.${a.id}`)}</div>
+        <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px">${t(`achieve.${a.id}.cond`)}</div>
         <div style="font-style:italic;font-size:11px;color:var(--text-secondary);line-height:1.5">"${a.quote}"</div>
         <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">— ${a.author}</div>
       </div>
@@ -43,16 +45,16 @@ export class InsightsView {
     this.el.innerHTML = `
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
-          <span class="panel-title">Philosophical Insights</span>
+          <span class="panel-title">${t('insights.title')}</span>
         </div>
         <div style="color:var(--text-secondary);font-size:13px;line-height:1.6;margin-bottom:16px">
-          As the universe evolves through each epoch, thinkers across history have pondered the same cosmic questions your simulation explores.
+          ${t('insights.description')}
         </div>
       </div>
       ${quotesHtml}
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
-          <span class="panel-title">Achievements</span>
+          <span class="panel-title">${t('insights.achievements')}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
           ${achievementsHtml}

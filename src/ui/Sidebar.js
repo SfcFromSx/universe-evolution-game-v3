@@ -1,16 +1,17 @@
 import { store } from '../core/StateStore.js';
 import { eventBus } from '../core/EventBus.js';
+import { t, toggleLang, getLang } from '../core/i18n.js';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', icon: 'grid', label: 'Dashboard' },
-  { id: 'data', icon: 'chart', label: 'Data' },
-  { id: 'reports', icon: 'doc', label: 'Reports' },
-  { id: 'simulations', icon: 'flask', label: 'Simulations' },
-  { id: 'insights', icon: 'lightbulb', label: 'Insights' },
+  { id: 'dashboard', icon: 'grid', labelKey: 'nav.dashboard' },
+  { id: 'data', icon: 'chart', labelKey: 'nav.data' },
+  { id: 'reports', icon: 'doc', labelKey: 'nav.reports' },
+  { id: 'simulations', icon: 'flask', labelKey: 'nav.simulations' },
+  { id: 'insights', icon: 'lightbulb', labelKey: 'nav.insights' },
 ];
 
 const BOTTOM_ITEMS = [
-  { id: 'settings', icon: 'gear', label: 'Settings' },
+  { id: 'settings', icon: 'gear', labelKey: 'nav.settings' },
 ];
 
 const ICONS = {
@@ -45,12 +46,22 @@ export class Sidebar {
     }
 
     const bottom = this.container.querySelector('#sidebar-bottom');
+
+    // Language toggle
+    const langBtn = document.createElement('button');
+    langBtn.className = 'sidebar-item sidebar-lang-btn';
+    langBtn.innerHTML = `
+      <span class="sidebar-lang-label">${t('lang.toggle')}</span>
+      <span class="sidebar-tooltip">${getLang() === 'en' ? 'Switch to Chinese' : 'Switch to English'}</span>
+    `;
+    langBtn.addEventListener('click', toggleLang);
+    bottom.appendChild(langBtn);
+
     for (const item of BOTTOM_ITEMS) {
       bottom.appendChild(this._createItem(item));
     }
 
     this._setActive(store.get('ui.activeView') || 'dashboard');
-
     eventBus.on('state:ui.activeView', ({ value }) => this._setActive(value));
   }
 
@@ -60,7 +71,7 @@ export class Sidebar {
     btn.dataset.view = item.id;
     btn.innerHTML = `
       ${ICONS[item.icon]}
-      <span class="sidebar-tooltip">${item.label}</span>
+      <span class="sidebar-tooltip">${t(item.labelKey)}</span>
     `;
     btn.addEventListener('click', () => {
       store.set('ui.activeView', item.id);

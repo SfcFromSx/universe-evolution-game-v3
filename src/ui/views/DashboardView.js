@@ -6,6 +6,7 @@ import { EpochTimeline } from '../panels/EpochTimeline.js';
 import { NodeGraph } from '../components/NodeGraph.js';
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
+import { t } from '../../core/i18n.js';
 
 export class DashboardView {
   constructor(container) {
@@ -25,11 +26,11 @@ export class DashboardView {
       <div class="dashboard-center" id="dash-center">
         <div class="panel galactic-web-panel" id="galactic-panel">
           <div class="panel-header">
-            <span class="panel-title" id="cluster-label">Galactic Web: Cluster-7</span>
+            <span class="panel-title" id="cluster-label">${t('web.title')}: ${t('web.cluster')}-7</span>
             <div style="display:flex;gap:8px;align-items:center">
               <select class="view-mode-select">
-                <option value="node-graph">Node-Graph</option>
-                <option value="heatmap">Heatmap</option>
+                <option value="node-graph">${t('web.nodeGraph')}</option>
+                <option value="heatmap">${t('web.heatmap')}</option>
               </select>
               <button class="panel-menu">···</button>
             </div>
@@ -79,9 +80,9 @@ export class DashboardView {
       if (label) {
         if (len > 0) {
           const clusterNum = Math.max(1, Math.floor(len / 4));
-          label.textContent = `Galactic Web: Cluster-${clusterNum}`;
+          label.textContent = `${t('web.title')}: ${t('web.cluster')}-${clusterNum}`;
         } else {
-          label.textContent = 'Galactic Web: Forming...';
+          label.textContent = `${t('web.title')}: ${t('web.forming')}`;
         }
       }
     }

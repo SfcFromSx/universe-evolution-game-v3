@@ -3,6 +3,7 @@ import { VerticalSlider } from '../components/VerticalSlider.js';
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { PARAM_RANGES, COLORS } from '../../data/constants.js';
+import { t } from '../../core/i18n.js';
 
 export class CosmicParameters {
   constructor(container) {
@@ -18,12 +19,12 @@ export class CosmicParameters {
 
     this.el.innerHTML = `
       <div class="panel-header">
-        <span class="panel-title">Cosmic Parameters</span>
+        <span class="panel-title">${t('params.title')}</span>
         <button class="panel-menu">···</button>
       </div>
       <div class="param-gauges" id="param-gauges"></div>
       <div class="expansion-rate-section">
-        <div class="expansion-rate-title">Cosmic Expansion Rate</div>
+        <div class="expansion-rate-title">${t('params.expansionRate')}</div>
         <div class="expansion-rate-content">
           <div class="expansion-sliders">
             <div class="expansion-slider-col">
@@ -55,29 +56,27 @@ export class CosmicParameters {
     const gaugesContainer = this.el.querySelector('#param-gauges');
     const slidersContainer = this.el.querySelector('#param-sliders');
 
-    // Gravity gauge
     const gravityWrap = document.createElement('div');
     gravityWrap.className = 'param-gauge-card';
     gravityWrap.innerHTML = `
-      <div class="param-gauge-label">Gravity</div>
+      <div class="param-gauge-label">${t('params.gravity')}</div>
       <div class="gauge-mount" id="gravity-gauge"></div>
       <div class="gauge-scale">
         <span>0.0</span>
-        <span style="color: var(--accent-cyan);">Strength</span>
+        <span style="color: var(--accent-cyan);">${t('params.strength')}</span>
         <span>2.0</span>
       </div>
     `;
     gaugesContainer.appendChild(gravityWrap);
 
-    // Dark Matter gauge
     const dmWrap = document.createElement('div');
     dmWrap.className = 'param-gauge-card';
     dmWrap.innerHTML = `
-      <div class="param-gauge-label">Dark Matter</div>
+      <div class="param-gauge-label">${t('params.darkMatter')}</div>
       <div class="gauge-mount" id="dm-gauge"></div>
       <div class="gauge-scale">
         <span>0%</span>
-        <span style="color: var(--accent-gold);">Density</span>
+        <span style="color: var(--accent-gold);">${t('params.density')}</span>
         <span>50%</span>
       </div>
     `;
@@ -103,7 +102,6 @@ export class CosmicParameters {
       onChange: (v) => this._onParamChange('darkMatterDensity', v),
     });
 
-    // Expansion rate vertical slider
     this.expansionSlider = new VerticalSlider(this.el.querySelector('#expansion-slider'), {
       ...PARAM_RANGES.expansionRate,
       value: params.expansionRate,
@@ -113,11 +111,10 @@ export class CosmicParameters {
       },
     });
 
-    // Other sliders
     this.sfrSlider = this._createSlider(slidersContainer, {
       ...PARAM_RANGES.starFormationRate,
       value: params.starFormationRate,
-      label: 'Star Formation Rate',
+      label: t('params.starFormation'),
       unit: 'x',
       ticks: ['0.0x', '0.5', '1.0x', '1.5', '2.0x', '2.5x'],
       onChange: (v) => this._onParamChange('starFormationRate', v),
@@ -126,7 +123,7 @@ export class CosmicParameters {
     this.photonSlider = this._createSlider(slidersContainer, {
       ...PARAM_RANGES.photonDensity,
       value: params.photonDensity,
-      label: 'Photon Density',
+      label: t('params.photonDensity'),
       unit: 'x',
       ticks: ['0.1x', '0.5', '1.0x', '1.5x'],
       onChange: (v) => this._onParamChange('photonDensity', v),
@@ -135,7 +132,7 @@ export class CosmicParameters {
     this.deSlider = this._createSlider(slidersContainer, {
       ...PARAM_RANGES.darkEnergy,
       value: params.darkEnergy,
-      label: 'Dark Energy (Λ)',
+      label: t('params.darkEnergy'),
       unit: 'x',
       ticks: ['0.0x', '0.5', '1.0x', '1.5', '2.0x'],
       onChange: (v) => this._onParamChange('darkEnergy', v),
@@ -180,10 +177,10 @@ export class CosmicParameters {
       const ticksEl = document.createElement('div');
       ticksEl.className = 'slider-ticks';
       for (const tick of options.ticks) {
-        const t = document.createElement('span');
-        t.className = 'slider-tick';
-        t.textContent = tick;
-        ticksEl.appendChild(t);
+        const te = document.createElement('span');
+        te.className = 'slider-tick';
+        te.textContent = tick;
+        ticksEl.appendChild(te);
       }
       sliderWrap.appendChild(ticksEl);
     }
@@ -192,7 +189,6 @@ export class CosmicParameters {
     group.appendChild(sliderWrap);
     container.appendChild(group);
 
-    // Simple slider binding
     const updateVisual = () => {
       const pct = ((options.value - options.min) / (options.max - options.min)) * 100;
       fill.style.width = pct + '%';

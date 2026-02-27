@@ -2,12 +2,12 @@ import { RadarChart } from '../components/RadarChart.js';
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { formatPercent } from '../../utils/format.js';
+import { t } from '../../core/i18n.js';
 
-// Colors matching the reference image
 const ELEMENT_COLORS = {
-  hydrogen: '#00e5ff',  // Cyan
-  helium: '#ffb020',    // Gold/Orange
-  heavy: '#ff4466'      // Pink/Red
+  hydrogen: '#00e5ff',
+  helium: '#ffb020',
+  heavy: '#ff4466'
 };
 
 export class ElementalDistribution {
@@ -23,7 +23,7 @@ export class ElementalDistribution {
   _build() {
     this.el.innerHTML = `
       <div class="panel-header">
-        <span class="panel-title">Elemental Distribution</span>
+        <span class="panel-title">${t('elements.title')}</span>
         <button class="panel-menu">···</button>
       </div>
       <div class="elemental-content">
@@ -32,21 +32,21 @@ export class ElementalDistribution {
           <div class="legend-item" data-type="hydrogen">
             <span class="legend-dot" style="background: ${ELEMENT_COLORS.hydrogen}; box-shadow: 0 0 8px ${ELEMENT_COLORS.hydrogen};"></span>
             <div class="legend-info">
-              <span class="legend-label">H (Hydrogen)</span>
+              <span class="legend-label">${t('elements.hydrogen')}</span>
               <span class="legend-value" id="h-value">74.0%</span>
             </div>
           </div>
           <div class="legend-item" data-type="helium">
             <span class="legend-dot" style="background: ${ELEMENT_COLORS.helium}; box-shadow: 0 0 8px ${ELEMENT_COLORS.helium};"></span>
             <div class="legend-info">
-              <span class="legend-label">He (Helium)</span>
+              <span class="legend-label">${t('elements.helium')}</span>
               <span class="legend-value" id="he-value">25.0%</span>
             </div>
           </div>
           <div class="legend-item" data-type="heavy">
             <span class="legend-dot" style="background: ${ELEMENT_COLORS.heavy}; box-shadow: 0 0 8px ${ELEMENT_COLORS.heavy};"></span>
             <div class="legend-info">
-              <span class="legend-label">Heavy Elements</span>
+              <span class="legend-label">${t('elements.heavy')}</span>
               <span class="legend-value" id="heavy-value">1.0%</span>
             </div>
           </div>
@@ -55,8 +55,6 @@ export class ElementalDistribution {
     `;
 
     const chartWrap = this.el.querySelector('#chart-wrap');
-
-    // Calculate responsive size based on container
     const containerHeight = this.container.clientHeight || 200;
     const chartSize = Math.min(130, Math.max(90, containerHeight - 60));
 
@@ -69,7 +67,6 @@ export class ElementalDistribution {
     this.heVal = this.el.querySelector('#he-value');
     this.heavyVal = this.el.querySelector('#heavy-value');
 
-    // Handle resize
     this._resizeObserver = new ResizeObserver(() => {
       const newHeight = this.el.clientHeight || 200;
       const newSize = Math.min(130, Math.max(90, newHeight - 60));

@@ -1,6 +1,7 @@
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { formatCompact, formatTemperature } from '../../utils/format.js';
+import { t } from '../../core/i18n.js';
 
 export class StatsBar {
   constructor(container) {
@@ -15,15 +16,15 @@ export class StatsBar {
   _build() {
     this.el.innerHTML = `
       <div class="stat-card">
-        <div class="stat-label">Galaxies</div>
+        <div class="stat-label">${t('stats.galaxies')}</div>
         <div class="stat-value cyan" id="stat-galaxies">198.4 T</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Avg Temp</div>
+        <div class="stat-label">${t('stats.avgTemp')}</div>
         <div class="stat-value gold" id="stat-temp">2.72<span class="stat-unit">K</span></div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Stars</div>
+        <div class="stat-label">${t('stats.stars')}</div>
         <div class="stat-value blue" id="stat-stars">1.2 Q</div>
       </div>
     `;

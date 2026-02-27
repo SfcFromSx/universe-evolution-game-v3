@@ -2,6 +2,7 @@ import { COLORS } from '../../data/constants.js';
 import { rgba } from '../../utils/color.js';
 import { distance } from '../../utils/math.js';
 import { formatCompact } from '../../utils/format.js';
+import { t } from '../../core/i18n.js';
 
 const TYPE_COLORS = {
   spiral: '#00e5ff',
@@ -17,12 +18,14 @@ const TYPE_GLOW = {
   lenticular: 'rgba(0, 255, 170, 0.6)',
 };
 
-const PRE_GALAXY_STAGES = [
-  { maxAge: 0.001, label: 'Planck Epoch', sub: 'Quantum gravity dominates' },
-  { maxAge: 0.01,  label: 'Nucleosynthesis', sub: 'Light elements forming' },
-  { maxAge: 0.38,  label: 'Photon Epoch', sub: 'Universe is an opaque plasma' },
-  { maxAge: 0.5,   label: 'Dark Ages', sub: 'First stars igniting...' },
-];
+function getPreGalaxyStages() {
+  return [
+    { maxAge: 0.001, label: t('stage.planck'), sub: t('stage.planck.sub') },
+    { maxAge: 0.01,  label: t('stage.nucleosynthesis'), sub: t('stage.nucleosynthesis.sub') },
+    { maxAge: 0.38,  label: t('stage.photon'), sub: t('stage.photon.sub') },
+    { maxAge: 0.5,   label: t('stage.darkAges'), sub: t('stage.darkAges.sub') },
+  ];
+}
 
 export class NodeGraph {
   constructor(container) {
@@ -271,8 +274,9 @@ export class NodeGraph {
     const t = this._time;
 
     // Determine stage
-    let stage = PRE_GALAXY_STAGES[PRE_GALAXY_STAGES.length - 1];
-    for (const s of PRE_GALAXY_STAGES) {
+    const stages = getPreGalaxyStages();
+    let stage = stages[stages.length - 1];
+    for (const s of stages) {
       if (age < s.maxAge) { stage = s; break; }
     }
 
@@ -332,7 +336,7 @@ export class NodeGraph {
       ctx.fillStyle = 'rgba(0, 229, 255, 0.5)';
       ctx.font = '10px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`Galaxy formation: ${Math.round(formationProgress * 100)}%`, cx, barY + 18);
+      ctx.fillText(`${t('web.galaxyFormation')}: ${Math.round(formationProgress * 100)}%`, cx, barY + 18);
     }
 
     // Epoch label
@@ -351,7 +355,7 @@ export class NodeGraph {
     const ageStr = age < 0.001 ? '< 1 MYA' :
                    age < 1 ? `${(age * 1000).toFixed(0)} MYA` :
                    `${age.toFixed(2)} BYA`;
-    ctx.fillText(`Cosmic Age: ${ageStr}`, cx, cy + 105);
+    ctx.fillText(`${t('web.cosmicAge')}: ${ageStr}`, cx, cy + 105);
   }
 
   _updateProtoParticles(age, formationProgress) {
@@ -634,7 +638,7 @@ export class NodeGraph {
       if (isHighlighted) {
         ctx.fillStyle = rgba(COLORS.accentCyan, 0.9);
         ctx.font = `${Math.max(8, 9 * this._zoom)}px "JetBrains Mono", monospace`;
-        ctx.fillText(`${formatCompact(g.starCount)} stars`, pos.x, pos.y + r + 12);
+        ctx.fillText(`${formatCompact(g.starCount)} ${t('galaxy.starsUnit')}`, pos.x, pos.y + r + 12);
       }
     }
   }
@@ -645,10 +649,10 @@ export class NodeGraph {
 
     const lines = [
       galaxy.name,
-      `${galaxy.type.charAt(0).toUpperCase() + galaxy.type.slice(1)} Galaxy`,
-      `Mass: ${formatCompact(galaxy.mass)} M☉`,
-      `Stars: ${formatCompact(galaxy.starCount)}`,
-      `Redshift: ${galaxy.redshift.toFixed(3)}`,
+      `${galaxy.type.charAt(0).toUpperCase() + galaxy.type.slice(1)} ${t('galaxy.type')}`,
+      `${t('galaxy.mass')}: ${formatCompact(galaxy.mass)} M☉`,
+      `${t('galaxy.stars')}: ${formatCompact(galaxy.starCount)}`,
+      `${t('galaxy.redshift')}: ${galaxy.redshift.toFixed(3)}`,
     ];
 
     const padding = 12;

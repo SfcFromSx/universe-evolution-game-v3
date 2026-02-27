@@ -1,5 +1,6 @@
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
+import { t } from '../../core/i18n.js';
 
 export class SimulationsView {
   constructor(container) {
@@ -22,20 +23,20 @@ export class SimulationsView {
     this.el.innerHTML = `
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
-          <span class="panel-title">Saved Simulations</span>
-          <button class="btn btn-primary" id="save-sim-btn">Save Current</button>
+          <span class="panel-title">${t('sims.title')}</span>
+          <button class="btn btn-primary" id="save-sim-btn">${t('sims.saveCurrent')}</button>
         </div>
         <div style="color:var(--text-secondary);font-size:12px;margin-bottom:16px">
-          Save your current universe state and load it later. Compare different parameter configurations.
+          ${t('sims.description')}
         </div>
         <div id="save-name-input" style="display:none;margin-bottom:12px">
-          <input type="text" placeholder="Simulation name..."
+          <input type="text" placeholder="${t('sims.namePlaceholder')}"
             style="background:var(--bg-secondary);border:1px solid var(--border-primary);color:var(--text-primary);padding:8px 12px;border-radius:6px;font-size:13px;width:300px;outline:none;margin-right:8px"
             id="sim-name-field">
-          <button class="btn btn-primary" id="confirm-save-btn">Save</button>
+          <button class="btn btn-primary" id="confirm-save-btn">${t('sims.save')}</button>
         </div>
         <div id="saves-list">
-          ${saves.length === 0 ? '<div style="color:var(--text-tertiary);text-align:center;padding:30px">No saved simulations yet.</div>' : ''}
+          ${saves.length === 0 ? `<div style="color:var(--text-tertiary);text-align:center;padding:30px">${t('sims.noSaves')}</div>` : ''}
           ${saves.map(s => `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;border:1px solid var(--border-primary)">
               <div>
@@ -43,8 +44,8 @@ export class SimulationsView {
                 <div style="font-size:11px;color:var(--text-tertiary)">${new Date(s.timestamp).toLocaleString()}</div>
               </div>
               <div style="display:flex;gap:6px">
-                <button class="btn load-sim-btn" data-name="${s.name}">Load</button>
-                <button class="btn delete-sim-btn" data-name="${s.name}" style="color:var(--danger)">Delete</button>
+                <button class="btn load-sim-btn" data-name="${s.name}">${t('sims.load')}</button>
+                <button class="btn delete-sim-btn" data-name="${s.name}" style="color:var(--danger)">${t('sims.delete')}</button>
               </div>
             </div>
           `).join('')}

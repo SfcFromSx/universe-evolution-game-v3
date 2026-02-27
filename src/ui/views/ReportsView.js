@@ -1,7 +1,8 @@
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
-import { formatCompact } from '../../utils/format.js';
+import { formatCompact, formatTemperature } from '../../utils/format.js';
 import { CANONICAL_PARAMS } from '../../data/constants.js';
+import { t } from '../../core/i18n.js';
 
 export class ReportsView {
   constructor(container) {
@@ -38,21 +39,20 @@ export class ReportsView {
     container.innerHTML = `
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
-          <span class="panel-title">Universe Status Report</span>
+          <span class="panel-title">${t('reports.title')}</span>
         </div>
         <div style="color:var(--text-secondary);line-height:1.8;font-size:13px">
-          <p>At <strong style="color:var(--accent-cyan)">${cosmicAge.toFixed(2)} billion years</strong> since the Big Bang,
-          your universe has formed <strong style="color:var(--accent-cyan)">${formatCompact(metrics.totalGalaxies)}</strong> galaxies
-          containing a total of <strong style="color:var(--accent-cyan)">${formatCompact(metrics.totalStars)}</strong> stars.</p>
-          <p style="margin-top:12px">The average cosmic temperature stands at <strong style="color:var(--accent-gold)">${metrics.avgTemperature.toFixed(2)} K</strong>.
-          Elemental composition is ${(elements.hydrogen * 100).toFixed(1)}% hydrogen, ${(elements.helium * 100).toFixed(1)}% helium,
-          and ${(elements.heavy * 100).toFixed(2)}% heavier elements.</p>
+          <p>${t('reports.atAge')} <strong style="color:var(--accent-cyan)">${cosmicAge.toFixed(2)} ${t('reports.billionYears')}</strong> ${t('reports.sinceBigBang')}，
+          ${t('reports.formed')} <strong style="color:var(--accent-cyan)">${formatCompact(metrics.totalGalaxies)}</strong> ${t('reports.galaxiesContaining')} <strong style="color:var(--accent-cyan)">${formatCompact(metrics.totalStars)}</strong> ${t('reports.starsTotal')}</p>
+          <p style="margin-top:12px">${t('reports.avgTempIs')} <strong style="color:var(--accent-gold)">${formatTemperature(metrics.avgTemperature)}</strong>。
+          ${t('reports.composition')} ${(elements.hydrogen * 100).toFixed(1)}% ${t('reports.hydrogen')}，${(elements.helium * 100).toFixed(1)}% ${t('reports.helium')}，
+          ${t('reports.and')} ${(elements.heavy * 100).toFixed(2)}% ${t('reports.heavyElements')}。</p>
         </div>
       </div>
 
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
-          <span class="panel-title">Parameter Deviation from Canonical Universe</span>
+          <span class="panel-title">${t('reports.deviationTitle')}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
           ${Object.entries(deviations).map(([key, dev]) => `
@@ -66,7 +66,7 @@ export class ReportsView {
 
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">Key Observations</span>
+          <span class="panel-title">${t('reports.observationsTitle')}</span>
         </div>
         <div style="color:var(--text-secondary);line-height:1.8;font-size:13px">
           ${this._generateObservations(params, metrics, elements)}
@@ -79,27 +79,27 @@ export class ReportsView {
     const observations = [];
 
     if (params.gravity > 1.3) {
-      observations.push('High gravity is accelerating star formation but reducing galaxy lifespans.');
+      observations.push(t('obs.highGravity'));
     } else if (params.gravity < 0.7) {
-      observations.push('Low gravity is preventing efficient gravitational collapse. Fewer structures forming.');
+      observations.push(t('obs.lowGravity'));
     }
 
     if (params.darkEnergy > 1.5) {
-      observations.push('Excessive dark energy is driving accelerated expansion, tearing structures apart.');
+      observations.push(t('obs.highDarkEnergy'));
     } else if (params.darkEnergy < 0.5) {
-      observations.push('Low dark energy may lead to eventual gravitational collapse of the universe.');
+      observations.push(t('obs.lowDarkEnergy'));
     }
 
     if (elements.heavy > 0.02) {
-      observations.push('Heavy element enrichment has reached levels compatible with rocky planet formation.');
+      observations.push(t('obs.heavyEnrichment'));
     }
 
     if (metrics.totalGalaxies > 1e12) {
-      observations.push('Galaxy count has reached the trillions — a rich cosmic web has formed.');
+      observations.push(t('obs.trillionGalaxies'));
     }
 
     if (observations.length === 0) {
-      observations.push('Parameters are within normal ranges. Universe is evolving as expected.');
+      observations.push(t('obs.normal'));
     }
 
     return observations.map(o => `<p style="margin-bottom:8px;padding-left:12px;border-left:2px solid var(--accent-cyan)">• ${o}</p>`).join('');

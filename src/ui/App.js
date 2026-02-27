@@ -6,6 +6,7 @@ import { SimulationsView } from './views/SimulationsView.js';
 import { InsightsView } from './views/InsightsView.js';
 import { store } from '../core/StateStore.js';
 import { eventBus } from '../core/EventBus.js';
+import { t } from '../core/i18n.js';
 
 export class App {
   constructor() {
@@ -36,14 +37,9 @@ export class App {
     overlay.className = 'welcome-overlay';
     overlay.innerHTML = `
       <div class="welcome-content">
-        <h1 class="welcome-title">COSMOPOEIA</h1>
-        <p class="welcome-text">
-          14.1 billion years ago, everything that would ever exist was compressed into a point
-          smaller than an atom. Then it expanded. And from that expansion came hydrogen, stars,
-          galaxies, planets, and — eventually — you, sitting here, wondering how it all works.<br><br>
-          Now it's your turn to try.
-        </p>
-        <button class="welcome-btn" id="welcome-begin">BEGIN</button>
+        <h1 class="welcome-title">${t('app.title')}</h1>
+        <p class="welcome-text">${t('app.welcome.text')}</p>
+        <button class="welcome-btn" id="welcome-begin">${t('app.welcome.begin')}</button>
       </div>
     `;
     document.body.appendChild(overlay);
