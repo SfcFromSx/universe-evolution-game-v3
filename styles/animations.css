@@ -4,28 +4,44 @@
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(clamp(10px, 1.5vh, 16px)); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInDown {
-  from { opacity: 0; transform: translateY(-12px); }
+  from { opacity: 0; transform: translateY(clamp(-10px, -1.5vh, -16px)); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-20px); }
+  from { opacity: 0; transform: translateX(clamp(-16px, -2vw, -24px)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(clamp(16px, 2vw, 24px)); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 8px var(--accent-cyan-glow); }
-  50% { box-shadow: 0 0 20px var(--accent-cyan-glow); }
+  0%, 100% { box-shadow: 0 0 12px var(--accent-cyan-glow); }
+  50% { box-shadow: 0 0 24px var(--accent-cyan-glow); }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--accent-cyan-glow);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent-cyan-glow);
+    filter: brightness(1.1);
+  }
 }
 
 @keyframes cosmicFlash {
@@ -41,56 +57,116 @@
 
 @keyframes nodeFloat {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(clamp(-3px, -0.5vh, -4px)); }
 }
 
-.anim-fade-in { animation: fadeIn 0.4s ease forwards; }
-.anim-fade-in-up { animation: fadeInUp 0.4s ease forwards; }
+@keyframes borderGlow {
+  0%, 100% {
+    border-color: var(--border-primary);
+    box-shadow: 0 0 0 transparent;
+  }
+  50% {
+    border-color: var(--border-hover);
+    box-shadow: 0 0 16px var(--accent-cyan-dim);
+  }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes dataFlow {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.3;
+  }
+}
+
+/* Animation utility classes */
+.anim-fade-in { animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.anim-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.anim-fade-in-down { animation: fadeInDown 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.anim-slide-in-left { animation: slideInLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.anim-slide-in-right { animation: slideInRight 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 .anim-pulse { animation: pulse 2s ease-in-out infinite; }
 .anim-glow { animation: glow 2s ease-in-out infinite; }
+.anim-glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
+.anim-spin { animation: spin 1s linear infinite; }
+.anim-node-float { animation: nodeFloat 3s ease-in-out infinite; }
+.anim-border-glow { animation: borderGlow 2s ease-in-out infinite; }
 
+/* Cosmic flash overlay effect */
 .cosmic-flash-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(ellipse at center, rgba(0, 212, 255, 0.3), transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.3), transparent 70%);
   pointer-events: none;
   z-index: 9999;
-  animation: cosmicFlash 1s ease forwards;
+  animation: cosmicFlash 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* Notification toast */
 .notification-toast {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: clamp(16px, 2vh, 24px);
+  right: clamp(16px, 2vw, 24px);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
-  border-radius: 10px;
-  padding: 14px 20px;
+  border-radius: 12px;
+  padding: clamp(12px, 1.5vh, 16px) clamp(18px, 2vw, 24px);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-base);
   z-index: 10000;
-  animation: fadeInDown 0.3s ease forwards;
-  box-shadow: var(--shadow-panel);
-  max-width: 360px;
+  animation: fadeInDown 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  box-shadow: var(--shadow-panel), 0 0 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  max-width: min(400px, 90vw);
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
 }
 
 .notification-toast .toast-title {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-md);
   color: var(--accent-cyan);
-  margin-bottom: 4px;
+  margin-bottom: clamp(4px, 0.6vh, 6px);
+  letter-spacing: 0.5px;
 }
 
 .notification-toast .toast-body {
-  font-size: 12px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
+/* Welcome overlay */
 .welcome-overlay {
   position: fixed;
   top: 0;
@@ -105,47 +181,118 @@
   animation: fadeIn 1s ease forwards;
 }
 
+.welcome-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 30%, rgba(0, 100, 150, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 70%, rgba(0, 80, 120, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
 .welcome-content {
-  max-width: 600px;
+  max-width: min(700px, 90vw);
   text-align: center;
-  padding: 40px;
+  padding: clamp(32px, 5vh, 48px);
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 42px;
+  font-size: clamp(32px, 5vw, 52px);
   font-weight: 700;
   color: var(--accent-cyan);
-  margin-bottom: 24px;
-  text-shadow: 0 0 40px var(--accent-cyan-glow);
-  letter-spacing: -0.5px;
+  margin-bottom: clamp(18px, 3vh, 28px);
+  text-shadow: 0 0 60px var(--accent-cyan-glow);
+  letter-spacing: 2px;
+  animation: glowPulse 3s ease-in-out infinite;
 }
 
 .welcome-text {
-  font-size: 16px;
+  font-size: clamp(14px, 2vw, 18px);
   line-height: 1.8;
   color: var(--text-secondary);
-  margin-bottom: 40px;
+  margin-bottom: clamp(32px, 5vh, 48px);
   font-style: italic;
+  max-width: min(500px, 80vw);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .welcome-btn {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
+  font-size: clamp(14px, 1.8vw, 16px);
   font-weight: 600;
-  padding: 14px 48px;
+  padding: clamp(12px, 2vh, 16px) clamp(36px, 5vw, 56px);
   background: transparent;
   border: 2px solid var(--accent-cyan);
   color: var(--accent-cyan);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition-normal);
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.2), transparent);
+  transition: left 0.5s ease;
 }
 
 .welcome-btn:hover {
   background: var(--accent-cyan);
   color: var(--bg-primary);
-  box-shadow: 0 0 30px var(--accent-cyan-glow);
+  box-shadow: 0 0 40px var(--accent-cyan-glow);
+  transform: translateY(-2px);
+}
+
+.welcome-btn:hover::before {
+  left: 100%;
+}
+
+/* Scanline effect for sci-fi aesthetic */
+.scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.03;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.3) 2px,
+    rgba(0, 0, 0, 0.3) 4px
+  );
+}
+
+/* Shimmer effect for loading states */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--bg-tertiary) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Data flow animation for edges */
+.data-flow {
+  stroke-dasharray: 5, 10;
+  animation: dataFlow 1s linear infinite;
 }

@@ -12,6 +12,8 @@ export class DashboardView {
     this.container = container;
     this.el = document.createElement('div');
     this.el.className = 'dashboard';
+    this._lastGalaxies = null;
+    this._lastGalaxyLen = -1;
     this._build();
     this.container.appendChild(this.el);
     eventBus.on('universe:updated', () => this._updateNodeGraph());
@@ -55,15 +57,39 @@ export class DashboardView {
   }
 
   _updateNodeGraph() {
+    const timeBYA = store.get('universeState.currentTime') || 14.1;
+    const cosmicAge = 14.1 - timeBYA;
+    this.nodeGraph.setCosmicAge(cosmicAge);
+
     const galaxies = store.get('galaxies') || [];
-    this.nodeGraph.setGalaxies(galaxies);
-    const clusterNum = Math.max(1, Math.floor(galaxies.length / 4));
-    const label = this.el.querySelector('#cluster-label');
-    if (label) label.textContent = `Galactic Web: Cluster-${clusterNum}`;
+    const ref = galaxies;
+    const len = galaxies.length;
+
+    if (ref !== this._lastGalaxies || len !== this._lastGalaxyLen) {
+      const isNewGen = this._lastGalaxies === null ||
+                       (this._lastGalaxyLen === 0 && len > 0) ||
+                       (this._lastGalaxyLen > 0 && len === 0) ||
+                       Math.abs(len - this._lastGalaxyLen) > 5;
+
+      this._lastGalaxies = ref;
+      this._lastGalaxyLen = len;
+      this.nodeGraph.setGalaxies(galaxies, isNewGen);
+
+      const label = this.el.querySelector('#cluster-label');
+      if (label) {
+        if (len > 0) {
+          const clusterNum = Math.max(1, Math.floor(len / 4));
+          label.textContent = `Galactic Web: Cluster-${clusterNum}`;
+        } else {
+          label.textContent = 'Galactic Web: Forming...';
+        }
+      }
+    }
   }
 
   render(dt) {
     this.nodeGraph.render(dt);
+    this.metrics.render();
   }
 
   destroy() {

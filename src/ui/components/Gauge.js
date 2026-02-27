@@ -6,16 +6,17 @@ export class Gauge {
   constructor(container, options = {}) {
     this.container = container;
     this.options = {
-      size: options.size || 90,
+      size: options.size || 100,
       min: options.min || 0,
       max: options.max || 2,
       value: options.value || 1,
       label: options.label || '',
+      sublabel: options.sublabel || '',
       unit: options.unit || '',
       color: options.color || COLORS.accentCyan,
       arcStart: options.arcStart || Math.PI * 0.8,
       arcEnd: options.arcEnd || Math.PI * 2.2,
-      lineWidth: options.lineWidth || 6,
+      lineWidth: options.lineWidth || 8,
       onChange: options.onChange || null,
     };
 
@@ -28,6 +29,7 @@ export class Gauge {
   _build() {
     this.el = document.createElement('div');
     this.el.className = 'gauge-container';
+    this.el.style.width = this.options.size + 'px';
 
     this.canvas = document.createElement('canvas');
     const size = this.options.size;
@@ -50,6 +52,14 @@ export class Gauge {
     this.overlay.appendChild(this.valueEl);
     this.overlay.appendChild(this.unitEl);
 
+    // Add sublabel if provided
+    if (this.options.sublabel) {
+      this.sublabelEl = document.createElement('div');
+      this.sublabelEl.className = 'gauge-sublabel';
+      this.sublabelEl.textContent = this.options.sublabel;
+      this.el.appendChild(this.sublabelEl);
+    }
+
     this.el.appendChild(this.canvas);
     this.el.appendChild(this.overlay);
     this.container.appendChild(this.el);
@@ -64,6 +74,7 @@ export class Gauge {
   _onMouseDown(e) {
     this._dragging = true;
     this._updateFromMouse(e);
+    this.canvas.style.cursor = 'grabbing';
   }
 
   _onMouseMove(e) {
@@ -73,6 +84,7 @@ export class Gauge {
 
   _onMouseUp() {
     this._dragging = false;
+    this.canvas.style.cursor = 'grab';
   }
 
   _updateFromMouse(e) {
@@ -113,44 +125,106 @@ export class Gauge {
     const size = this.options.size;
     const cx = size / 2;
     const cy = size / 2;
-    const radius = (size - this.options.lineWidth * 2) / 2 - 4;
+    const radius = (size - this.options.lineWidth * 2) / 2 - 6;
     const { arcStart, arcEnd, lineWidth, min, max, color } = this.options;
 
     ctx.clearRect(0, 0, size, size);
 
+    // Background track with subtle gradient
+    const bgGradient = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+    bgGradient.addColorStop(0, rgba(COLORS.borderPrimary, 0.4));
+    bgGradient.addColorStop(1, rgba(COLORS.borderPrimary, 0.2));
+
     ctx.beginPath();
     ctx.arc(cx, cy, radius, arcStart, arcEnd);
-    ctx.strokeStyle = rgba(COLORS.borderPrimary, 0.6);
+    ctx.strokeStyle = bgGradient;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    const valueAngle = arcStart + ((this._value - min) / (max - min)) * (arcEnd - arcStart);
+    // Calculate value angle
+    const valueRatio = (this._value - min) / (max - min);
+    const valueAngle = arcStart + valueRatio * (arcEnd - arcStart);
+
+    // Value arc with glow
+    const valueGradient = ctx.createLinearGradient(
+      cx + Math.cos(arcStart) * radius,
+      cy + Math.sin(arcStart) * radius,
+      cx + Math.cos(valueAngle) * radius,
+      cy + Math.sin(valueAngle) * radius
+    );
+    valueGradient.addColorStop(0, color);
+    valueGradient.addColorStop(1, this._brightenColor(color, 20));
+
+    // Outer glow
+    ctx.save();
+    ctx.shadowColor = rgba(color, 0.5);
+    ctx.shadowBlur = 15;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, arcStart, valueAngle);
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.stroke();
+    ctx.restore();
 
+    // Inner bright line
     ctx.save();
-    ctx.shadowColor = rgba(color, 0.5);
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = rgba(color, 0.8);
+    ctx.shadowBlur = 8;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, Math.max(arcStart, valueAngle - 0.3), valueAngle);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
+    ctx.arc(cx, cy, radius, Math.max(arcStart, valueAngle - 0.5), valueAngle);
+    ctx.strokeStyle = this._brightenColor(color, 40);
+    ctx.lineWidth = lineWidth * 0.7;
     ctx.lineCap = 'round';
     ctx.stroke();
     ctx.restore();
 
+    // Tick marks
+    const tickCount = 5;
+    for (let i = 0; i <= tickCount; i++) {
+      const tickAngle = arcStart + (arcEnd - arcStart) * (i / tickCount);
+      const tickInnerR = radius - lineWidth / 2 - 4;
+      const tickOuterR = radius + lineWidth / 2 + 2;
+
+      ctx.beginPath();
+      ctx.moveTo(
+        cx + Math.cos(tickAngle) * tickInnerR,
+        cy + Math.sin(tickAngle) * tickInnerR
+      );
+      ctx.lineTo(
+        cx + Math.cos(tickAngle) * tickOuterR,
+        cy + Math.sin(tickAngle) * tickOuterR
+      );
+      ctx.strokeStyle = rgba(COLORS.textTertiary, 0.5);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Update value display
     let displayValue;
     if (this.options.unit === '%') {
-      displayValue = (this._value * 100).toFixed(1) + '%';
-    } else {
+      displayValue = (this._value * 100).toFixed(1);
+    } else if (this.options.unit === 'G') {
       displayValue = this._value.toFixed(2);
+    } else {
+      displayValue = this._value.toFixed(1);
     }
     this.valueEl.textContent = displayValue;
+    this.valueEl.style.color = color;
+  }
+
+  _brightenColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return '#' + (0x1000000 +
+      (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+      (B < 255 ? B < 1 ? 0 : B : 255)
+    ).toString(16).slice(1);
   }
 
   destroy() {

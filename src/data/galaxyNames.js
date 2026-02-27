@@ -1,3 +1,5 @@
+import { SeededRandom } from '../utils/random.js';
+
 const REAL_NAMES = [
   'Milky Way', 'Andromeda', 'Triangulum', 'Centaurus A', 'Sombrero',
   'Whirlpool', 'Pinwheel', 'Cartwheel', 'Sunflower', 'Black Eye',
@@ -20,24 +22,20 @@ const SUFFIXES = [
   'Ring', 'Void', 'Spine', 'Gate', 'Haven', 'Apex',
 ];
 
-let _nameIndex = 0;
+let _nameRng = new SeededRandom(777);
 let _usedNames = new Set();
 
-export function generateGalaxyName(seed) {
-  if (_nameIndex < REAL_NAMES.length && Math.random() < 0.3) {
-    const name = REAL_NAMES[_nameIndex];
-    if (!_usedNames.has(name)) {
-      _usedNames.add(name);
-      _nameIndex++;
-      return name;
-    }
+export function generateGalaxyName(index) {
+  if (index < REAL_NAMES.length) {
+    return REAL_NAMES[index];
   }
 
+  const nameRng = new SeededRandom(777 + index * 3571);
   let name;
   let attempts = 0;
   do {
-    const prefix = PREFIXES[Math.floor(Math.random() * PREFIXES.length)];
-    const suffix = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
+    const prefix = PREFIXES[Math.floor(nameRng.next() * PREFIXES.length)];
+    const suffix = SUFFIXES[Math.floor(nameRng.next() * SUFFIXES.length)];
     name = `${prefix} ${suffix}`;
     attempts++;
   } while (_usedNames.has(name) && attempts < 50);
@@ -47,6 +45,6 @@ export function generateGalaxyName(seed) {
 }
 
 export function resetNameGenerator() {
-  _nameIndex = 0;
+  _nameRng = new SeededRandom(777);
   _usedNames.clear();
 }

@@ -56,6 +56,7 @@ export class CosmicWeb {
     const repulsionStrength = 0.0005;
     const attractionStrength = 0.0001;
     const damping = 0.95;
+    const galaxyMap = new Map(this.galaxies.map(g => [g.id, g]));
 
     for (const g of this.galaxies) {
       if (!g.vx) g.vx = 0;
@@ -71,13 +72,12 @@ export class CosmicWeb {
         g.vy += (dy / dist) * force;
       }
 
-      const galaxyMap = new Map(this.galaxies.map(g => [g.id, g]));
       for (const connId of g.connections) {
         const target = galaxyMap.get(connId);
         if (!target) continue;
         const dx = target.x - g.x;
         const dy = target.y - g.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
         const idealDist = 0.15;
         const force = (dist - idealDist) * attractionStrength;
         g.vx += (dx / dist) * force;

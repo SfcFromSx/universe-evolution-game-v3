@@ -1,6 +1,6 @@
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
-import { formatCompact } from '../../utils/format.js';
+import { formatCompact, formatTemperature } from '../../utils/format.js';
 
 export class StatsBar {
   constructor(container) {
@@ -15,15 +15,15 @@ export class StatsBar {
   _build() {
     this.el.innerHTML = `
       <div class="stat-card">
-        <div class="stat-label">Galaxies Formed</div>
+        <div class="stat-label">Galaxies</div>
         <div class="stat-value cyan" id="stat-galaxies">198.4 T</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Average Temperature</div>
+        <div class="stat-label">Avg Temp</div>
         <div class="stat-value gold" id="stat-temp">2.72<span class="stat-unit">K</span></div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Stars Created</div>
+        <div class="stat-label">Stars</div>
         <div class="stat-value blue" id="stat-stars">1.2 Q</div>
       </div>
     `;
@@ -41,13 +41,7 @@ export class StatsBar {
     this.starsEl.textContent = formatCompact(metrics.totalStars);
 
     const temp = metrics.avgTemperature;
-    if (temp > 1e6) {
-      this.tempEl.innerHTML = formatCompact(temp) + '<span class="stat-unit">K</span>';
-    } else if (temp > 1000) {
-      this.tempEl.innerHTML = (temp / 1000).toFixed(1) + '<span class="stat-unit">KK</span>';
-    } else {
-      this.tempEl.innerHTML = temp.toFixed(2) + '<span class="stat-unit">K</span>';
-    }
+    this.tempEl.innerHTML = formatTemperature(temp);
   }
 
   destroy() {

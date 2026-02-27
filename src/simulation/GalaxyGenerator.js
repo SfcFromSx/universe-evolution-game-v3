@@ -7,10 +7,12 @@ const TYPE_WEIGHTS = [0.6, 0.2, 0.12, 0.08];
 
 export class GalaxyGenerator {
   constructor(seed = 42) {
+    this.seed = seed;
     this.rng = new SeededRandom(seed);
   }
 
   generateCluster(params, timeBYA, count = 25) {
+    this.rng.reset();
     resetNameGenerator();
     const galaxies = [];
     const cosmicAge = 14.1 - timeBYA;
@@ -24,28 +26,42 @@ export class GalaxyGenerator {
     const actualCount = clamp(effectiveCount, 3, 50);
 
     for (let i = 0; i < actualCount; i++) {
-      galaxies.push(this._generateGalaxy(params, cosmicAge, i, actualCount));
+      galaxies.push(this._generateGalaxy(this.rng, params, cosmicAge, i, actualCount));
     }
 
     this._generateConnections(galaxies);
     return galaxies;
   }
 
-  _generateGalaxy(params, cosmicAge, index, total) {
-    const angle = (index / total) * Math.PI * 2 + this.rng.gaussian(0, 0.3);
-    const radius = this.rng.range(0.15, 0.85);
-    const x = 0.5 + Math.cos(angle) * radius * 0.4 + this.rng.gaussian(0, 0.05);
-    const y = 0.5 + Math.sin(angle) * radius * 0.4 + this.rng.gaussian(0, 0.05);
-    const z = this.rng.gaussian(0, 0.1);
+  addGalaxies(existing, params, cosmicAge, targetCount) {
+    if (targetCount <= existing.length) return existing;
+
+    const result = existing.map(g => ({ ...g, connections: [] }));
+
+    for (let i = existing.length; i < targetCount; i++) {
+      const perGalaxyRng = new SeededRandom(this.seed + i * 7919);
+      result.push(this._generateGalaxy(perGalaxyRng, params, cosmicAge, i, targetCount));
+    }
+
+    this._generateConnections(result);
+    return result;
+  }
+
+  _generateGalaxy(rng, params, cosmicAge, index, total) {
+    const angle = (index / total) * Math.PI * 2 + rng.gaussian(0, 0.3);
+    const radius = rng.range(0.15, 0.85);
+    const x = 0.5 + Math.cos(angle) * radius * 0.4 + rng.gaussian(0, 0.05);
+    const y = 0.5 + Math.sin(angle) * radius * 0.4 + rng.gaussian(0, 0.05);
+    const z = rng.gaussian(0, 0.1);
 
     const massFactor = params.gravity * (params.darkMatterDensity / 0.268);
-    const mass = Math.pow(10, this.rng.range(9, 13)) * massFactor;
+    const mass = Math.pow(10, rng.range(9, 13)) * massFactor;
 
     const starCountBase = mass * params.starFormationRate * 1e-2;
-    const starCount = starCountBase * this.rng.range(0.5, 2.0);
+    const starCount = starCountBase * rng.range(0.5, 2.0);
 
-    const type = this._pickType();
-    const redshift = clamp(this.rng.range(0.001, 0.2) * (1 + z * 0.5), 0.001, 2);
+    const type = this._pickType(rng);
+    const redshift = clamp(rng.range(0.001, 0.2) * (1 + z * 0.5), 0.001, 2);
     const metallicity = clamp(0.001 + (cosmicAge / 14.1) * 0.03 * params.starFormationRate, 0.001, 0.05);
 
     return {
@@ -59,14 +75,14 @@ export class GalaxyGenerator {
       type,
       redshift,
       metallicity,
-      age: cosmicAge * this.rng.range(0.3, 1.0),
+      age: cosmicAge * rng.range(0.3, 1.0),
       connections: [],
       radius: Math.pow(mass / 1e12, 0.3) * 12 + 3,
     };
   }
 
-  _pickType() {
-    const r = this.rng.next();
+  _pickType(rng) {
+    const r = rng.next();
     let cumulative = 0;
     for (let i = 0; i < GALAXY_TYPES.length; i++) {
       cumulative += TYPE_WEIGHTS[i];
@@ -78,6 +94,7 @@ export class GalaxyGenerator {
   _generateConnections(galaxies) {
     for (let i = 0; i < galaxies.length; i++) {
       const g = galaxies[i];
+      const connRng = new SeededRandom(this.seed + i * 1013);
       const distances = galaxies
         .map((other, j) => ({
           index: j,
@@ -90,7 +107,7 @@ export class GalaxyGenerator {
         .sort((a, b) => a.dist - b.dist);
 
       const connectionCount = Math.min(
-        Math.floor(this.rng.range(1, 4)),
+        Math.floor(connRng.range(1, 4)),
         distances.length
       );
 

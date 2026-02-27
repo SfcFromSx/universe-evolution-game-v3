@@ -4,20 +4,37 @@ import { distance } from '../../utils/math.js';
 import { formatCompact } from '../../utils/format.js';
 
 const TYPE_COLORS = {
-  spiral: '#00d4ff',
-  elliptical: '#ffaa00',
-  irregular: '#ff4466',
-  lenticular: '#00ff88',
+  spiral: '#00e5ff',
+  elliptical: '#ffb020',
+  irregular: '#ff5566',
+  lenticular: '#00ffaa',
 };
+
+const TYPE_GLOW = {
+  spiral: 'rgba(0, 229, 255, 0.6)',
+  elliptical: 'rgba(255, 176, 32, 0.6)',
+  irregular: 'rgba(255, 85, 102, 0.6)',
+  lenticular: 'rgba(0, 255, 170, 0.6)',
+};
+
+const PRE_GALAXY_STAGES = [
+  { maxAge: 0.001, label: 'Planck Epoch', sub: 'Quantum gravity dominates' },
+  { maxAge: 0.01,  label: 'Nucleosynthesis', sub: 'Light elements forming' },
+  { maxAge: 0.38,  label: 'Photon Epoch', sub: 'Universe is an opaque plasma' },
+  { maxAge: 0.5,   label: 'Dark Ages', sub: 'First stars igniting...' },
+];
 
 export class NodeGraph {
   constructor(container) {
     this.container = container;
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d');
-    this.container.appendChild(this.canvas);
+
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';
+    this.canvas.style.display = 'block';
+
+    this.container.appendChild(this.canvas);
 
     this.galaxies = [];
     this.hoveredGalaxy = null;
@@ -25,26 +42,111 @@ export class NodeGraph {
     this._offset = { x: 0, y: 0 };
     this._zoom = 1;
     this._time = 0;
+    this._isActive = true;
+    this._needsCenter = true;
+    this._isDragging = false;
+    this._dragStart = { x: 0, y: 0 };
+    this._offsetStart = { x: 0, y: 0 };
+    this._cosmicAge = 0;
+    this._galaxyGeneration = 0;
+    this._protoParticles = this._initProtoParticles();
 
-    this._resize();
-    window.addEventListener('resize', () => this._resize());
-    this.canvas.addEventListener('mousemove', (e) => this._onMouseMove(e));
-    this.canvas.addEventListener('click', (e) => this._onClick(e));
-    this.canvas.addEventListener('wheel', (e) => this._onWheel(e));
+    this._resizeHandler = () => this._resize();
+    this._mouseMoveHandler = (e) => this._onMouseMove(e);
+    this._mouseDownHandler = (e) => this._onMouseDown(e);
+    this._mouseUpHandler = (e) => this._onMouseUp(e);
+    this._clickHandler = (e) => this._onClick(e);
+    this._wheelHandler = (e) => this._onWheel(e);
+
+    window.addEventListener('resize', this._resizeHandler);
+    this.canvas.addEventListener('mousemove', this._mouseMoveHandler);
+    this.canvas.addEventListener('mousedown', this._mouseDownHandler);
+    window.addEventListener('mouseup', this._mouseUpHandler);
+    this.canvas.addEventListener('click', this._clickHandler);
+    this.canvas.addEventListener('wheel', this._wheelHandler, { passive: false });
+
+    setTimeout(() => this._resize(), 0);
+    this._setupResizeObserver();
+  }
+
+  _initProtoParticles() {
+    const particles = [];
+    for (let i = 0; i < 80; i++) {
+      const angle = (i / 80) * Math.PI * 2 + (i * 2.399);
+      const r = 0.1 + (i / 80) * 0.35;
+      particles.push({
+        x: 0.5 + Math.cos(angle) * r,
+        y: 0.5 + Math.sin(angle) * r,
+        vx: Math.cos(angle + Math.PI / 2) * 0.0003,
+        vy: Math.sin(angle + Math.PI / 2) * 0.0003,
+        size: 1 + Math.random() * 2.5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 1.5,
+      });
+    }
+    return particles;
+  }
+
+  _setupResizeObserver() {
+    if (typeof ResizeObserver !== 'undefined' && this.container) {
+      this._resizeObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(() => this._resize());
+      });
+      this._resizeObserver.observe(this.container);
+    }
   }
 
   _resize() {
+    if (!this.container || !this.canvas) return;
+
     const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+
+    this.canvas.width = Math.max(1, rect.width * dpr);
+    this.canvas.height = Math.max(1, rect.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     this.width = rect.width;
     this.height = rect.height;
+
+    if (this._needsCenter) {
+      this._centerView();
+    }
   }
 
-  setGalaxies(galaxies) {
+  _centerView() {
+    if (this.galaxies.length === 0 || !this.width || !this.height) return;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    for (const g of this.galaxies) {
+      minX = Math.min(minX, g.x);
+      maxX = Math.max(maxX, g.x);
+      minY = Math.min(minY, g.y);
+      maxY = Math.max(maxY, g.y);
+    }
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    this._offset.x = this.width / 2 - centerX * this.width * this._zoom;
+    this._offset.y = this.height / 2 - centerY * this.height * this._zoom;
+    this._needsCenter = false;
+  }
+
+  setCosmicAge(age) {
+    this._cosmicAge = age;
+  }
+
+  setGalaxies(galaxies, isNewGeneration = false) {
+    const hadGalaxies = this.galaxies.length > 0;
     this.galaxies = galaxies;
+    if (isNewGeneration || (!hadGalaxies && galaxies.length > 0)) {
+      this._galaxyGeneration++;
+      this._needsCenter = true;
+      this._centerView();
+    }
   }
 
   _toScreen(gx, gy) {
@@ -54,10 +156,42 @@ export class NodeGraph {
     };
   }
 
+  _toGalaxy(sx, sy) {
+    return {
+      x: (sx - this._offset.x) / (this.width * this._zoom),
+      y: (sy - this._offset.y) / (this.height * this._zoom),
+    };
+  }
+
+  _onMouseDown(e) {
+    if (e.button !== 0) return;
+    this._isDragging = false;
+    this._dragStart.x = e.clientX;
+    this._dragStart.y = e.clientY;
+    this._offsetStart.x = this._offset.x;
+    this._offsetStart.y = this._offset.y;
+    this._dragMoved = false;
+  }
+
   _onMouseMove(e) {
     const rect = this.canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+
+    if (e.buttons === 1 && this._dragStart) {
+      const dx = e.clientX - this._dragStart.x;
+      const dy = e.clientY - this._dragStart.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        this._isDragging = true;
+        this._dragMoved = true;
+      }
+      if (this._isDragging) {
+        this._offset.x = this._offsetStart.x + dx;
+        this._offset.y = this._offsetStart.y + dy;
+        this.canvas.style.cursor = 'grabbing';
+        return;
+      }
+    }
 
     this.hoveredGalaxy = null;
     for (const g of this.galaxies) {
@@ -67,41 +201,281 @@ export class NodeGraph {
         break;
       }
     }
-    this.canvas.style.cursor = this.hoveredGalaxy ? 'pointer' : 'default';
+    this.canvas.style.cursor = this.hoveredGalaxy ? 'pointer' : 'grab';
   }
 
-  _onClick(e) {
-    if (this.hoveredGalaxy) {
-      this.selectedGalaxy = this.hoveredGalaxy;
-    } else {
-      this.selectedGalaxy = null;
+  _onMouseUp() {
+    this._isDragging = false;
+    if (this.canvas) {
+      this.canvas.style.cursor = this.hoveredGalaxy ? 'pointer' : 'grab';
     }
+  }
+
+  _onClick() {
+    if (this._dragMoved) {
+      this._dragMoved = false;
+      return;
+    }
+    this.selectedGalaxy = this.hoveredGalaxy || null;
   }
 
   _onWheel(e) {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.95 : 1.05;
-    this._zoom = Math.max(0.5, Math.min(3, this._zoom * delta));
+    const rect = this.canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const beforeZoom = this._toGalaxy(mx, my);
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    this._zoom = Math.max(0.3, Math.min(5, this._zoom * delta));
+    const afterZoom = this._toGalaxy(mx, my);
+    this._offset.x += (afterZoom.x - beforeZoom.x) * this.width * this._zoom;
+    this._offset.y += (afterZoom.y - beforeZoom.y) * this.height * this._zoom;
   }
 
   render(dt) {
-    this._time += dt;
+    if (!this._isActive || !this.ctx) return;
+
+    this._time += dt || 0;
     const ctx = this.ctx;
+
     ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillStyle = 'rgba(5, 7, 10, 0.3)';
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    this._renderGrid(ctx);
 
     if (this.galaxies.length === 0) {
-      ctx.fillStyle = COLORS.textTertiary;
-      ctx.font = '14px "Space Grotesk", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('No galaxies yet — advance time to see the cosmic web form',
-        this.width / 2, this.height / 2);
+      this._renderPreGalaxyState(ctx);
       return;
     }
 
     this._renderEdges(ctx);
     this._renderNodes(ctx);
     this._renderLabels(ctx);
-    if (this.hoveredGalaxy) this._renderTooltip(ctx, this.hoveredGalaxy);
+
+    if (this.hoveredGalaxy) {
+      this._renderTooltip(ctx, this.hoveredGalaxy);
+    }
+    if (this.selectedGalaxy) {
+      this._renderSelectionIndicator(ctx);
+    }
+  }
+
+  // --- Pre-galaxy animated empty state ---
+
+  _renderPreGalaxyState(ctx) {
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const age = this._cosmicAge;
+    const t = this._time;
+
+    // Determine stage
+    let stage = PRE_GALAXY_STAGES[PRE_GALAXY_STAGES.length - 1];
+    for (const s of PRE_GALAXY_STAGES) {
+      if (age < s.maxAge) { stage = s; break; }
+    }
+
+    const formationProgress = Math.min(1, Math.max(0, (age - 0.1) / 0.4));
+
+    // Animate proto-particles
+    this._updateProtoParticles(age, formationProgress);
+    this._renderProtoParticles(ctx, cx, cy, age, formationProgress);
+
+    // Central glow
+    const glowR = Math.min(this.width, this.height) * (0.15 + formationProgress * 0.1);
+    const pulse = 1 + Math.sin(t * 1.5) * 0.08;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR * pulse);
+
+    if (age < 0.01) {
+      grad.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
+      grad.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    } else if (age < 0.38) {
+      grad.addColorStop(0, 'rgba(255, 160, 60, 0.15)');
+      grad.addColorStop(0.5, 'rgba(200, 80, 20, 0.05)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    } else {
+      grad.addColorStop(0, 'rgba(0, 80, 180, 0.12)');
+      grad.addColorStop(0.5, 'rgba(0, 40, 100, 0.06)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    // Expanding ring for early universe
+    if (age < 0.05) {
+      const ringT = (t * 0.3) % 1;
+      const ringR = glowR * 0.3 + ringT * glowR * 0.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 200, 100, ${0.3 * (1 - ringT)})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Galaxy formation progress bar
+    if (age >= 0.1 && age < 0.5) {
+      const barW = 160;
+      const barH = 4;
+      const barX = cx - barW / 2;
+      const barY = cy + 80;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      this._roundRect(ctx, barX, barY, barW, barH, 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.6)';
+      this._roundRect(ctx, barX, barY, barW * formationProgress, barH, 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.5)';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Galaxy formation: ${Math.round(formationProgress * 100)}%`, cx, barY + 18);
+    }
+
+    // Epoch label
+    ctx.fillStyle = COLORS.textSecondary;
+    ctx.font = '14px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(stage.label, cx, cy + 50);
+
+    ctx.fillStyle = COLORS.textTertiary;
+    ctx.font = '11px "Inter", sans-serif';
+    ctx.fillText(stage.sub, cx, cy + 68);
+
+    // Cosmic age counter
+    ctx.fillStyle = rgba(COLORS.accentCyan, 0.5);
+    ctx.font = '10px "JetBrains Mono", monospace';
+    const ageStr = age < 0.001 ? '< 1 MYA' :
+                   age < 1 ? `${(age * 1000).toFixed(0)} MYA` :
+                   `${age.toFixed(2)} BYA`;
+    ctx.fillText(`Cosmic Age: ${ageStr}`, cx, cy + 105);
+  }
+
+  _updateProtoParticles(age, formationProgress) {
+    const clusterStrength = formationProgress * 0.002;
+    for (const p of this._protoParticles) {
+      // Orbital drift
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // Gravitational pull toward center as formation progresses
+      const dx = 0.5 - p.x;
+      const dy = 0.5 - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0.01) {
+        p.vx += (dx / dist) * clusterStrength;
+        p.vy += (dy / dist) * clusterStrength;
+      }
+
+      // Damping
+      p.vx *= 0.998;
+      p.vy *= 0.998;
+
+      // Wrap around
+      if (p.x < 0.02) p.x = 0.98;
+      if (p.x > 0.98) p.x = 0.02;
+      if (p.y < 0.02) p.y = 0.98;
+      if (p.y > 0.98) p.y = 0.02;
+    }
+  }
+
+  _renderProtoParticles(ctx, cx, cy, age, formationProgress) {
+    const w = this.width;
+    const h = this.height;
+    const t = this._time;
+
+    for (const p of this._protoParticles) {
+      const sx = p.x * w;
+      const sy = p.y * h;
+      const pulse = 1 + Math.sin(t * p.speed + p.phase) * 0.4;
+      const r = p.size * pulse * (0.6 + formationProgress * 0.8);
+
+      let alpha;
+      if (age < 0.01) {
+        alpha = 0.15 + pulse * 0.1;
+      } else if (age < 0.38) {
+        alpha = 0.1 + formationProgress * 0.15;
+      } else {
+        alpha = 0.2 + formationProgress * 0.3;
+      }
+
+      // Particle glow
+      const pg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 4);
+      if (age < 0.38) {
+        pg.addColorStop(0, `rgba(255, 180, 80, ${alpha})`);
+        pg.addColorStop(1, 'rgba(255, 180, 80, 0)');
+      } else {
+        pg.addColorStop(0, `rgba(60, 160, 255, ${alpha})`);
+        pg.addColorStop(1, 'rgba(60, 160, 255, 0)');
+      }
+      ctx.fillStyle = pg;
+      ctx.fillRect(sx - r * 4, sy - r * 4, r * 8, r * 8);
+
+      // Particle core
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      if (age < 0.38) {
+        ctx.fillStyle = `rgba(255, 220, 150, ${alpha * 1.5})`;
+      } else {
+        ctx.fillStyle = `rgba(100, 200, 255, ${alpha * 1.5})`;
+      }
+      ctx.fill();
+    }
+
+    // Draw faint filament hints between close particles during late pre-galaxy
+    if (formationProgress > 0.3) {
+      ctx.strokeStyle = `rgba(0, 180, 255, ${formationProgress * 0.1})`;
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < this._protoParticles.length; i++) {
+        const a = this._protoParticles[i];
+        for (let j = i + 1; j < this._protoParticles.length; j++) {
+          const b = this._protoParticles[j];
+          const d = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+          if (d < 0.08) {
+            ctx.beginPath();
+            ctx.moveTo(a.x * w, a.y * h);
+            ctx.lineTo(b.x * w, b.y * h);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  }
+
+  // --- Galaxy rendering ---
+
+  _renderGrid(ctx) {
+    const gridSize = Math.max(30, 60 * this._zoom);
+    const offsetX = this._offset.x % gridSize;
+    const offsetY = this._offset.y % gridSize;
+
+    ctx.strokeStyle = 'rgba(30, 60, 90, 0.2)';
+    ctx.lineWidth = 1;
+
+    for (let x = offsetX; x < this.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.height);
+      ctx.stroke();
+    }
+    for (let y = offsetY; y < this.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(this.width, y);
+      ctx.stroke();
+    }
+
+    const gradient = ctx.createRadialGradient(
+      this.width / 2, this.height / 2, 0,
+      this.width / 2, this.height / 2, Math.max(this.width, this.height) / 2
+    );
+    gradient.addColorStop(0, 'rgba(0, 60, 100, 0.1)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, this.width, this.height);
   }
 
   _renderEdges(ctx) {
@@ -109,6 +483,8 @@ export class NodeGraph {
     const rendered = new Set();
 
     for (const g of this.galaxies) {
+      if (!g.connections || g.connections.length === 0) continue;
+
       for (const connId of g.connections) {
         const key = [g.id, connId].sort().join('-');
         if (rendered.has(key)) continue;
@@ -119,24 +495,49 @@ export class NodeGraph {
 
         const from = this._toScreen(g.x, g.y);
         const to = this._toScreen(target.x, target.y);
+
+        if ((from.x < -50 && to.x < -50) ||
+            (from.x > this.width + 50 && to.x > this.width + 50) ||
+            (from.y < -50 && to.y < -50) ||
+            (from.y > this.height + 50 && to.y > this.height + 50)) {
+          continue;
+        }
+
         const isHighlighted = (this.hoveredGalaxy === g || this.hoveredGalaxy === target ||
                                this.selectedGalaxy === g || this.selectedGalaxy === target);
 
         ctx.beginPath();
         ctx.moveTo(from.x, from.y);
-
-        const midX = (from.x + to.x) / 2 + Math.sin(this._time * 0.5) * 3;
-        const midY = (from.y + to.y) / 2 + Math.cos(this._time * 0.7) * 3;
+        const midX = (from.x + to.x) / 2 + Math.sin(this._time * 0.5 + g.x * 5) * 8;
+        const midY = (from.y + to.y) / 2 + Math.cos(this._time * 0.7 + g.y * 5) * 8;
         ctx.quadraticCurveTo(midX, midY, to.x, to.y);
 
-        const alpha = isHighlighted ? 0.6 : 0.15;
-        ctx.strokeStyle = rgba(COLORS.accentCyan, alpha);
-        ctx.lineWidth = isHighlighted ? 2 : 1;
-        ctx.stroke();
+        const alpha = isHighlighted ? 0.6 : 0.2;
+        const lineWidth = isHighlighted ? 2.5 : 1;
 
         if (isHighlighted) {
           ctx.save();
-          ctx.shadowColor = rgba(COLORS.accentCyan, 0.3);
+          ctx.shadowColor = rgba(COLORS.accentCyan, 0.5);
+          ctx.shadowBlur = 12;
+          ctx.strokeStyle = rgba(COLORS.accentCyan, 0.3);
+          ctx.lineWidth = lineWidth + 6;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.strokeStyle = rgba(COLORS.accentCyan, alpha);
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        if (isHighlighted) {
+          const flowOffset = (this._time * 80) % 40;
+          ctx.save();
+          ctx.setLineDash([6, 14]);
+          ctx.lineDashOffset = -flowOffset;
+          ctx.strokeStyle = rgba(COLORS.accentCyan, 0.9);
+          ctx.lineWidth = 2;
+          ctx.shadowColor = COLORS.accentCyan;
           ctx.shadowBlur = 8;
           ctx.stroke();
           ctx.restore();
@@ -148,68 +549,113 @@ export class NodeGraph {
   _renderNodes(ctx) {
     for (const g of this.galaxies) {
       const pos = this._toScreen(g.x, g.y);
-      const color = TYPE_COLORS[g.type] || COLORS.accentCyan;
-      const isHighlighted = g === this.hoveredGalaxy || g === this.selectedGalaxy;
-      const pulse = 1 + Math.sin(this._time * 2 + g.x * 10) * 0.05;
-      const r = g.radius * pulse * (isHighlighted ? 1.3 : 1);
 
-      const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r * 3);
-      gradient.addColorStop(0, rgba(color, 0.3));
-      gradient.addColorStop(1, rgba(color, 0));
-      ctx.fillStyle = gradient;
+      if (pos.x < -50 || pos.x > this.width + 50 ||
+          pos.y < -50 || pos.y > this.height + 50) {
+        continue;
+      }
+
+      const color = TYPE_COLORS[g.type] || COLORS.accentCyan;
+      const glowColor = TYPE_GLOW[g.type] || TYPE_GLOW.spiral;
+      const isHighlighted = g === this.hoveredGalaxy || g === this.selectedGalaxy;
+      const pulse = 1 + Math.sin(this._time * 2 + g.x * 10) * 0.06;
+      const r = Math.max(4, g.radius * pulse * (isHighlighted ? 1.3 : 1));
+
+      const outerGradient = ctx.createRadialGradient(pos.x, pos.y, r, pos.x, pos.y, r * 3);
+      outerGradient.addColorStop(0, rgba(color, 0.3));
+      outerGradient.addColorStop(0.5, rgba(color, 0.1));
+      outerGradient.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = outerGradient;
       ctx.fillRect(pos.x - r * 3, pos.y - r * 3, r * 6, r * 6);
+
+      if (isHighlighted) {
+        ctx.save();
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(color, 0.3);
+        ctx.fill();
+        ctx.restore();
+      }
 
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = rgba(color, 0.8);
+      ctx.fillStyle = rgba(color, 0.9);
       ctx.fill();
 
       ctx.save();
-      ctx.shadowColor = rgba(color, 0.6);
+      ctx.shadowColor = glowColor;
       ctx.shadowBlur = isHighlighted ? 20 : 10;
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, r * 0.6, 0, Math.PI * 2);
+      ctx.arc(pos.x, pos.y, r * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
       ctx.restore();
+
+      if (isHighlighted) {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r * 1.6, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(color, 0.5);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
   }
 
   _renderLabels(ctx) {
-    ctx.font = '10px "Inter", sans-serif';
-    ctx.textAlign = 'center';
-
     for (const g of this.galaxies) {
-      if (g.radius < 6 && g !== this.hoveredGalaxy && g !== this.selectedGalaxy) continue;
-
       const pos = this._toScreen(g.x, g.y);
+
+      if (pos.x < 0 || pos.x > this.width ||
+          pos.y < 0 || pos.y > this.height) {
+        continue;
+      }
+
       const isHighlighted = g === this.hoveredGalaxy || g === this.selectedGalaxy;
+      const r = g.radius;
 
-      ctx.fillStyle = isHighlighted ? COLORS.textPrimary : rgba(COLORS.textSecondary, 0.8);
-      ctx.font = isHighlighted ? '11px "Inter", sans-serif' : '9px "Inter", sans-serif';
-      ctx.fillText(g.name, pos.x, pos.y - g.radius - 8);
+      if (r < 6 && !isHighlighted) continue;
 
-      ctx.fillStyle = rgba(COLORS.textTertiary, 0.7);
-      ctx.font = '8px "JetBrains Mono", monospace';
-      ctx.fillText(`(Z=${g.redshift.toFixed(2)})`, pos.x, pos.y - g.radius + 2);
+      ctx.fillStyle = isHighlighted ? COLORS.textPrimary : rgba(COLORS.textSecondary, 0.9);
+      ctx.font = isHighlighted ?
+        `bold ${Math.max(11, 12 * this._zoom)}px "Space Grotesk", sans-serif` :
+        `${Math.max(9, 10 * this._zoom)}px "Space Grotesk", sans-serif`;
+      ctx.textAlign = 'center';
+
+      const labelY = pos.y - r - 10;
+      ctx.fillText(g.name, pos.x, labelY);
+
+      ctx.fillStyle = rgba(COLORS.textTertiary, 0.8);
+      ctx.font = `${Math.max(8, 9 * this._zoom)}px "JetBrains Mono", monospace`;
+      const typeLabel = g.type.charAt(0).toUpperCase() + g.type.slice(1);
+      ctx.fillText(`${typeLabel} Z=${g.redshift.toFixed(2)}`, pos.x, labelY + 12);
+
+      if (isHighlighted) {
+        ctx.fillStyle = rgba(COLORS.accentCyan, 0.9);
+        ctx.font = `${Math.max(8, 9 * this._zoom)}px "JetBrains Mono", monospace`;
+        ctx.fillText(`${formatCompact(g.starCount)} stars`, pos.x, pos.y + r + 12);
+      }
     }
   }
 
   _renderTooltip(ctx, galaxy) {
     const pos = this._toScreen(galaxy.x, galaxy.y);
+    const color = TYPE_COLORS[galaxy.type] || COLORS.accentCyan;
+
     const lines = [
       galaxy.name,
-      `Type: ${galaxy.type}`,
+      `${galaxy.type.charAt(0).toUpperCase() + galaxy.type.slice(1)} Galaxy`,
       `Mass: ${formatCompact(galaxy.mass)} M☉`,
       `Stars: ${formatCompact(galaxy.starCount)}`,
       `Redshift: ${galaxy.redshift.toFixed(3)}`,
-      `Metallicity: ${(galaxy.metallicity * 100).toFixed(2)}%`,
     ];
 
-    const padding = 10;
+    const padding = 12;
     const lineHeight = 16;
     const width = 160;
     const height = lines.length * lineHeight + padding * 2;
+
     let tx = pos.x + galaxy.radius + 15;
     let ty = pos.y - height / 2;
 
@@ -217,35 +663,89 @@ export class NodeGraph {
     if (ty < 10) ty = 10;
     if (ty + height > this.height - 10) ty = this.height - 10 - height;
 
+    ctx.save();
+    ctx.shadowColor = rgba(color, 0.3);
+    ctx.shadowBlur = 15;
     ctx.fillStyle = rgba(COLORS.bgSecondary, 0.95);
-    ctx.strokeStyle = COLORS.borderPrimary;
+    this._roundRect(ctx, tx, ty, width, height, 10);
+    ctx.fill();
+    ctx.strokeStyle = rgba(color, 0.5);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = color;
+    ctx.fillRect(tx, ty, 3, height);
+
+    ctx.fillStyle = color;
+    ctx.font = 'bold 12px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(lines[0], tx + padding + 4, ty + padding + 12);
+
+    ctx.strokeStyle = rgba(COLORS.borderPrimary, 0.5);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    this._roundRect(ctx, tx, ty, width, height, 8);
-    ctx.fill();
+    ctx.moveTo(tx + padding, ty + padding + 16);
+    ctx.lineTo(tx + width - padding, ty + padding + 16);
     ctx.stroke();
-
-    ctx.fillStyle = COLORS.accentCyan;
-    ctx.font = 'bold 11px "Space Grotesk", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(lines[0], tx + padding, ty + padding + 12);
 
     ctx.fillStyle = COLORS.textSecondary;
     ctx.font = '10px "Inter", sans-serif';
     for (let i = 1; i < lines.length; i++) {
-      ctx.fillText(lines[i], tx + padding, ty + padding + 12 + i * lineHeight);
+      ctx.fillText(lines[i], tx + padding + 4, ty + padding + 12 + i * lineHeight);
     }
   }
 
+  _renderSelectionIndicator(ctx) {
+    if (!this.selectedGalaxy) return;
+
+    const pos = this._toScreen(this.selectedGalaxy.x, this.selectedGalaxy.y);
+    const r = this.selectedGalaxy.radius * 2;
+    const pulse = 1 + Math.sin(this._time * 3) * 0.1;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.lineDashOffset = -this._time * 20;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   _roundRect(ctx, x, y, w, h, r) {
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
   }
 
   destroy() {
-    this.canvas.remove();
+    this._isActive = false;
+
+    window.removeEventListener('resize', this._resizeHandler);
+    window.removeEventListener('mouseup', this._mouseUpHandler);
+
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
+    if (this.canvas) {
+      this.canvas.removeEventListener('mousemove', this._mouseMoveHandler);
+      this.canvas.removeEventListener('mousedown', this._mouseDownHandler);
+      this.canvas.removeEventListener('click', this._clickHandler);
+      this.canvas.removeEventListener('wheel', this._wheelHandler);
+      this.canvas.remove();
+      this.canvas = null;
+    }
+
+    this.container = null;
+    this.ctx = null;
   }
 }

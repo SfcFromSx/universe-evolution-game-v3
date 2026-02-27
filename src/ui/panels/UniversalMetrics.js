@@ -9,9 +9,13 @@ export class UniversalMetrics {
     this.container = container;
     this.el = document.createElement('div');
     this.el.className = 'panel metrics-panel';
+    this._canvasReady = false;
     this._build();
     this.container.appendChild(this.el);
     eventBus.on('universe:updated', () => this.update());
+
+    this._resizeObserver = new ResizeObserver(() => this._onResize());
+    this._resizeObserver.observe(this.el);
   }
 
   _build() {
@@ -49,11 +53,17 @@ export class UniversalMetrics {
     this._initGraphData();
   }
 
+  _onResize() {
+    this._resizeMiniCanvases();
+  }
+
   _initGraphData() {
     const data = [];
     for (let t = 14; t >= 0; t -= 0.5) {
-      const entropy = Math.pow((14.1 - t) / 14.1, 0.8) * 1000;
-      data.push({ x: (14.1 - t).toFixed(1), y: entropy });
+      const cosmicAge = 14.1 - t;
+      const fraction = cosmicAge / 14.1;
+      const entropy = Math.log10(Math.max(Math.pow(2.725 / Math.max(fraction, 1e-10), 3), 1));
+      data.push({ x: cosmicAge, y: entropy });
     }
     this.graph.setData(data);
   }
@@ -62,39 +72,86 @@ export class UniversalMetrics {
     const history = store.get('metrics.entropyHistory') || [];
     if (history.length > 2) {
       const graphData = history.map(h => ({
-        x: (14.1 - h.time) * 1000,
+        x: 14.1 - h.time,
         y: Math.log10(Math.max(h.entropy, 1)),
       }));
       this.graph.setData(graphData);
+    }
+  }
+
+  render() {
+    if (!this._canvasReady) {
+      this._resizeMiniCanvases();
     }
     this._renderThermo();
     this._renderCMB();
   }
 
+  _resizeMiniCanvases() {
+    const dpr = window.devicePixelRatio || 1;
+    let ready = true;
+
+    for (const canvas of [this.thermoCanvas, this.cmbCanvas]) {
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      if (w < 2 || h < 2) {
+        ready = false;
+        continue;
+      }
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    if (ready) {
+      this._thermoW = Math.round(this.thermoCanvas.getBoundingClientRect().width);
+      this._thermoH = Math.round(this.thermoCanvas.getBoundingClientRect().height);
+      this._cmbW = Math.round(this.cmbCanvas.getBoundingClientRect().width);
+      this._cmbH = Math.round(this.cmbCanvas.getBoundingClientRect().height);
+      this._canvasReady = true;
+    }
+  }
+
   _renderThermo() {
     const ctx = this.thermoCtx;
-    const w = this.thermoCanvas.width;
-    const h = this.thermoCanvas.height;
+    const w = this._thermoW || 0;
+    const h = this._thermoH || 0;
+    if (w < 2 || h < 2) return;
+
     ctx.clearRect(0, 0, w, h);
 
     const temp = store.get('universeState.temperature') || 2.725;
     const time = performance.now() / 1000;
 
-    ctx.strokeStyle = COLORS.accentCyan;
+    const logTemp = Math.log10(Math.max(temp, 1));
+    const freq = 0.08 + logTemp * 0.015;
+    const amplitude = Math.min(h * 0.4, 4 + logTemp * 1.5);
+    const speed = 1.5 + Math.min(logTemp * 0.3, 4);
+
+    const hotness = Math.min(1, logTemp / 30);
+
+    const r = Math.round(hotness * 255);
+    const g = Math.round((1 - hotness) * 180 + hotness * 100);
+    const b = Math.round((1 - hotness) * 255);
+    const lineColor = `rgb(${r}, ${g}, ${b})`;
+    const glowColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+
+    ctx.strokeStyle = lineColor;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let x = 0; x < w; x++) {
-      const freq = 0.1 + (temp / 100) * 0.01;
-      const amplitude = 8 + Math.log10(Math.max(temp, 1)) * 2;
-      const y = h / 2 + Math.sin(x * freq + time * 3) * amplitude *
-                Math.sin(x * 0.05 + time) * 0.7;
+      const y = h / 2 +
+        Math.sin(x * freq + time * speed) * amplitude * 0.6 +
+        Math.sin(x * freq * 2.3 + time * speed * 1.7) * amplitude * 0.25 +
+        Math.sin(x * freq * 0.5 + time * speed * 0.6) * amplitude * 0.15;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
 
     ctx.save();
-    ctx.shadowColor = rgba(COLORS.accentCyan, 0.4);
+    ctx.shadowColor = glowColor;
     ctx.shadowBlur = 6;
     ctx.stroke();
     ctx.restore();
@@ -102,30 +159,66 @@ export class UniversalMetrics {
 
   _renderCMB() {
     const ctx = this.cmbCtx;
+    const dpr = window.devicePixelRatio || 1;
     const w = this.cmbCanvas.width;
     const h = this.cmbCanvas.height;
+    if (w < 2 || h < 2) return;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
     const timeBYA = store.get('universeState.currentTime') || 14.1;
-    const cmbStrength = Math.max(0, 1 - timeBYA / 14.1);
+    const cosmicAge = 14.1 - timeBYA;
+    const recombinationAge = 0.38;
 
-    const imageData = ctx.createImageData(w, h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        const noise = (Math.sin(x * 0.8 + y * 0.6) * 0.5 + 0.5) *
-                      (Math.cos(x * 0.3 - y * 0.9) * 0.5 + 0.5);
-        const val = noise * cmbStrength * 255;
-        imageData.data[i] = val * 0.2;
-        imageData.data[i + 1] = val * 0.6;
-        imageData.data[i + 2] = val;
-        imageData.data[i + 3] = 180;
+    if (cosmicAge < recombinationAge) {
+      // Pre-recombination: hot plasma glow
+      const plasmaIntensity = Math.min(1, cosmicAge / recombinationAge);
+      const time = performance.now() / 2000;
+
+      for (let py = 0; py < h; py += 2) {
+        for (let px = 0; px < w; px += 2) {
+          const sx = px / dpr;
+          const sy = py / dpr;
+          const flicker = 0.6 + 0.4 * Math.sin(sx * 0.3 + time * 2) *
+                          Math.cos(sy * 0.4 - time * 1.5);
+          const val = flicker * plasmaIntensity * 200;
+          const r = Math.min(255, val * 1.2);
+          const g = val * 0.4;
+          const b = val * 0.1;
+          ctx.fillStyle = `rgba(${r|0}, ${g|0}, ${b|0}, 0.7)`;
+          ctx.fillRect(px, py, 2, 2);
+        }
       }
+    } else {
+      // Post-recombination: CMB anisotropy pattern
+      const cmbStrength = Math.min(1, (cosmicAge - recombinationAge) / 0.3);
+      const imageData = ctx.createImageData(w, h);
+      for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+          const i = (py * w + px) * 4;
+          const sx = px / dpr;
+          const sy = py / dpr;
+          const noise = (Math.sin(sx * 0.8 + sy * 0.6) * 0.5 + 0.5) *
+                        (Math.cos(sx * 0.3 - sy * 0.9) * 0.5 + 0.5);
+          const val = noise * cmbStrength * 255;
+          imageData.data[i] = val * 0.2;
+          imageData.data[i + 1] = val * 0.6;
+          imageData.data[i + 2] = val;
+          imageData.data[i + 3] = 180;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
     }
-    ctx.putImageData(imageData, 0, 0);
+
+    ctx.restore();
   }
 
   destroy() {
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+    }
     this.graph.destroy();
     this.el.remove();
   }

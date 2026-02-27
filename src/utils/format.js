@@ -1,4 +1,6 @@
 const SUFFIXES = [
+  { value: 1e24, symbol: 'Sp' },
+  { value: 1e21, symbol: 'Sx' },
   { value: 1e18, symbol: 'Qi' },
   { value: 1e15, symbol: 'Q' },
   { value: 1e12, symbol: 'T' },
@@ -10,6 +12,11 @@ const SUFFIXES = [
 export function formatLargeNumber(num, decimals = 1) {
   if (num === 0) return '0';
   const abs = Math.abs(num);
+  if (abs >= 1e27) {
+    const exp = Math.floor(Math.log10(abs));
+    const mantissa = num / Math.pow(10, exp);
+    return `${mantissa.toFixed(1)}e${exp}`;
+  }
   for (const { value, symbol } of SUFFIXES) {
     if (abs >= value) {
       return (num / value).toFixed(decimals) + ' ' + symbol;
@@ -22,12 +29,12 @@ export function formatScientific(num, sigFigs = 3) {
   if (num === 0) return '0';
   const exp = Math.floor(Math.log10(Math.abs(num)));
   const mantissa = num / Math.pow(10, exp);
-  return `${mantissa.toFixed(sigFigs - 1)}×10^${exp}`;
+  return `${mantissa.toFixed(sigFigs - 1)}e${exp}`;
 }
 
 export function formatTemperature(kelvin) {
   if (kelvin >= 1e9) return formatLargeNumber(kelvin, 1);
-  if (kelvin >= 1000) return (kelvin / 1000).toFixed(2) + 'K K';
+  if (kelvin >= 1000) return (kelvin / 1000).toFixed(1) + ' kK';
   return kelvin.toFixed(kelvin < 10 ? 2 : 1) + ' K';
 }
 
@@ -42,10 +49,18 @@ export function formatTimeBYA(bya) {
 }
 
 export function formatCompact(num) {
-  if (num >= 1e15) return (num / 1e15).toFixed(1) + ' Q';
-  if (num >= 1e12) return (num / 1e12).toFixed(1) + ' T';
-  if (num >= 1e9) return (num / 1e9).toFixed(1) + ' B';
-  if (num >= 1e6) return (num / 1e6).toFixed(1) + ' M';
-  if (num >= 1e3) return (num / 1e3).toFixed(1) + ' K';
+  if (num === 0 || num == null || isNaN(num)) return '0';
+  const abs = Math.abs(num);
+  if (abs >= 1e27) {
+    const exp = Math.floor(Math.log10(abs));
+    const mantissa = num / Math.pow(10, exp);
+    return `${mantissa.toFixed(1)}e${exp}`;
+  }
+  for (const { value, symbol } of SUFFIXES) {
+    if (abs >= value) {
+      return (num / value).toFixed(1) + ' ' + symbol;
+    }
+  }
+  if (abs < 1) return num.toFixed(2);
   return num.toFixed(0);
 }

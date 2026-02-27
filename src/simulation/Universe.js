@@ -15,11 +15,22 @@ export class Universe {
     this.cosmicWeb = null;
     this._entropyHistory = [];
     this._simTime = 0;
+    this._paramsChanged = false;
+    this._lastGalaxyCount = 0;
   }
 
   init() {
     this.recalculate();
-    eventBus.on('state:cosmicParameters', () => this.recalculate());
+    eventBus.on('state:cosmicParameters', () => {
+      this._paramsChanged = true;
+      this.recalculate();
+    });
+    eventBus.on('state:universeState.currentTime', () => {
+      if (!store.get('simulation.isPlaying')) {
+        this._paramsChanged = true;
+        this.recalculate();
+      }
+    });
   }
 
   recalculate() {
@@ -29,6 +40,7 @@ export class Universe {
     this._updateElements(params, timeBYA);
     this._updateGalaxies(params, timeBYA);
     this._updateMetrics(params, timeBYA);
+    this._recordEntropy();
     eventBus.emit('universe:updated');
   }
 
@@ -40,21 +52,19 @@ export class Universe {
     timeBYA = Math.max(0, timeBYA - timeStep);
     store.set('universeState.currentTime', timeBYA);
 
-    const { changed } = this.epochManager.updateTime(timeBYA);
+    this.epochManager.updateTime(timeBYA);
 
     this._updatePhysics(params, timeBYA);
     this._updateElements(params, timeBYA);
     this._updateMetrics(params, timeBYA);
-
-    if (changed) {
-      this._updateGalaxies(params, timeBYA);
-    }
+    this._updateGalaxies(params, timeBYA);
 
     if (this.cosmicWeb) {
       this.cosmicWeb.applyForces(dt);
     }
 
     this._recordEntropy();
+    eventBus.emit('universe:updated');
 
     if (timeBYA <= 0) {
       store.set('simulation.isComplete', true);
@@ -66,6 +76,7 @@ export class Universe {
   setTime(timeBYA) {
     store.set('universeState.currentTime', clamp(timeBYA, 0, 14.1));
     this.epochManager.updateTime(timeBYA);
+    this._paramsChanged = true;
     this.recalculate();
   }
 
@@ -75,6 +86,8 @@ export class Universe {
     store.set('simulation.isPlaying', false);
     this.epochManager.reset();
     this._entropyHistory = [];
+    this._paramsChanged = true;
+    this._lastGalaxyCount = 0;
     this.recalculate();
   }
 
@@ -107,16 +120,41 @@ export class Universe {
 
   _updateGalaxies(params, timeBYA) {
     const cosmicAge = 14.1 - timeBYA;
+
     if (cosmicAge < 0.5) {
-      store.set('galaxies', []);
-      this.cosmicWeb = null;
+      if (this._lastGalaxyCount > 0) {
+        store.set('galaxies', []);
+        this.cosmicWeb = null;
+        this._lastGalaxyCount = 0;
+      }
       return;
     }
 
-    const count = Math.round(15 + cosmicAge * 2);
-    const galaxies = this.galaxyGenerator.generateCluster(params, timeBYA, count);
-    store.set('galaxies', galaxies);
-    this.cosmicWeb = new CosmicWeb(galaxies);
+    const baseCount = Math.round(15 + cosmicAge * 2);
+    const effectiveCount = clamp(Math.round(
+      baseCount * params.gravity * (params.darkMatterDensity / 0.268) * params.starFormationRate
+    ), 3, 50);
+
+    const existing = store.get('galaxies') || [];
+
+    // Full regeneration: first time, params changed, or count decreased
+    if (existing.length === 0 || this._paramsChanged || effectiveCount < existing.length) {
+      const galaxies = this.galaxyGenerator.generateCluster(params, timeBYA, baseCount);
+      store.set('galaxies', galaxies);
+      this.cosmicWeb = new CosmicWeb(galaxies);
+      this._paramsChanged = false;
+      this._lastGalaxyCount = galaxies.length;
+      return;
+    }
+
+    // Same count — no regeneration needed
+    if (effectiveCount === existing.length) return;
+
+    // Incremental growth: add new galaxies while preserving existing positions
+    const grown = this.galaxyGenerator.addGalaxies(existing, params, cosmicAge, effectiveCount);
+    store.set('galaxies', grown);
+    this.cosmicWeb = new CosmicWeb(grown);
+    this._lastGalaxyCount = grown.length;
   }
 
   _updateMetrics(params, timeBYA) {
