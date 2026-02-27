@@ -1,0 +1,12 @@
+{
+  "name": "cosmopoeia",
+  "version": "1.0.0",
+  "description": "Interactive universe evolution simulator — philosophy meets cosmology",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "start": "python3 -m http.server 8080"
+  },
+  "keywords": ["cosmology", "simulation", "universe", "philosophy", "game"],
+  "license": "MIT"
+}
