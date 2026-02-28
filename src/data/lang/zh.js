@@ -75,10 +75,12 @@ export const zh = {
   'web.title': '星系网络',
   'web.cluster': '星团',
   'web.forming': '形成中...',
+  'web.filamentField': '丝状场',
   'web.nodeGraph': '节点图',
   'web.heatmap': '热力图',
   'web.galaxyFormation': '星系形成',
   'web.cosmicAge': '宇宙年龄',
+  'web.solarSystem': '太阳系模拟',
 
   // Pre-galaxy stages
   'stage.planck': '普朗克纪元',

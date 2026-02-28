@@ -75,10 +75,12 @@ export const en = {
   'web.title': 'Galactic Web',
   'web.cluster': 'Cluster',
   'web.forming': 'Forming...',
+  'web.filamentField': 'Filament Field',
   'web.nodeGraph': 'Node-Graph',
   'web.heatmap': 'Heatmap',
   'web.galaxyFormation': 'Galaxy formation',
   'web.cosmicAge': 'Cosmic Age',
+  'web.solarSystem': 'Solar System Simulation',
 
   // Pre-galaxy stages
   'stage.planck': 'Planck Epoch',

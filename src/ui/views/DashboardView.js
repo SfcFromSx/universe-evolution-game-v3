@@ -4,6 +4,7 @@ import { StatsBar } from '../panels/StatsBar.js';
 import { CosmicParameters } from '../panels/CosmicParameters.js';
 import { EpochTimeline } from '../panels/EpochTimeline.js';
 import { NodeGraph } from '../components/NodeGraph.js';
+import { SolarSystem3D } from '../components/SolarSystem3D.js';
 import { store } from '../../core/StateStore.js';
 import { eventBus } from '../../core/EventBus.js';
 import { t } from '../../core/i18n.js';
@@ -29,6 +30,7 @@ export class DashboardView {
             <span class="panel-title" id="cluster-label">${t('web.title')}: ${t('web.cluster')}-7</span>
             <div style="display:flex;gap:8px;align-items:center">
               <select class="view-mode-select" id="galactic-view-mode">
+                <option value="filament-field">${t('web.filamentField')}</option>
                 <option value="node-graph">${t('web.nodeGraph')}</option>
                 <option value="heatmap">${t('web.heatmap')}</option>
               </select>
@@ -53,6 +55,8 @@ export class DashboardView {
     this.cosmicParams = new CosmicParameters(right);
     this.timeline = new EpochTimeline(bottom);
     this.nodeGraph = new NodeGraph(galacticContent);
+    this.solarSystem = new SolarSystem3D(galacticContent);
+    this.solarSystem.hide();
 
     const viewModeSelect = this.el.querySelector('#galactic-view-mode');
     if (viewModeSelect) {
@@ -75,9 +79,9 @@ export class DashboardView {
 
     if (ref !== this._lastGalaxies || len !== this._lastGalaxyLen) {
       const isNewGen = this._lastGalaxies === null ||
-                       (this._lastGalaxyLen === 0 && len > 0) ||
-                       (this._lastGalaxyLen > 0 && len === 0) ||
-                       Math.abs(len - this._lastGalaxyLen) > 5;
+        (this._lastGalaxyLen === 0 && len > 0) ||
+        (this._lastGalaxyLen > 0 && len === 0) ||
+        Math.abs(len - this._lastGalaxyLen) > 5;
 
       this._lastGalaxies = ref;
       this._lastGalaxyLen = len;
@@ -87,9 +91,19 @@ export class DashboardView {
       if (label) {
         if (len > 0) {
           const clusterNum = Math.max(1, Math.floor(len / 4));
-          label.textContent = `${t('web.title')}: ${t('web.cluster')}-${clusterNum}`;
+          if (clusterNum >= 4) {
+            label.textContent = t('web.solarSystem');
+            this.nodeGraph.hide();
+            this.solarSystem.show();
+          } else {
+            label.textContent = `${t('web.title')}: ${t('web.cluster')}-${clusterNum}`;
+            this.nodeGraph.show();
+            this.solarSystem.hide();
+          }
         } else {
           label.textContent = `${t('web.title')}: ${t('web.forming')}`;
+          this.nodeGraph.show();
+          this.solarSystem.hide();
         }
       }
     }
@@ -97,6 +111,7 @@ export class DashboardView {
 
   render(dt) {
     this.nodeGraph.render(dt);
+    this.solarSystem.render();
     this.metrics.render();
   }
 
@@ -106,6 +121,7 @@ export class DashboardView {
     this.cosmicParams.destroy();
     this.timeline.destroy();
     this.nodeGraph.destroy();
+    this.solarSystem.destroy();
     this.el.remove();
   }
 }

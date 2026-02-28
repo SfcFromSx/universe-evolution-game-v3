@@ -21,9 +21,9 @@ const TYPE_GLOW = {
 function getPreGalaxyStages() {
   return [
     { maxAge: 0.001, label: t('stage.planck'), sub: t('stage.planck.sub') },
-    { maxAge: 0.01,  label: t('stage.nucleosynthesis'), sub: t('stage.nucleosynthesis.sub') },
-    { maxAge: 0.38,  label: t('stage.photon'), sub: t('stage.photon.sub') },
-    { maxAge: 0.5,   label: t('stage.darkAges'), sub: t('stage.darkAges.sub') },
+    { maxAge: 0.01, label: t('stage.nucleosynthesis'), sub: t('stage.nucleosynthesis.sub') },
+    { maxAge: 0.38, label: t('stage.photon'), sub: t('stage.photon.sub') },
+    { maxAge: 0.5, label: t('stage.darkAges'), sub: t('stage.darkAges.sub') },
   ];
 }
 
@@ -52,7 +52,7 @@ export class NodeGraph {
     this._offsetStart = { x: 0, y: 0 };
     this._cosmicAge = 0;
     this._galaxyGeneration = 0;
-    this._viewMode = 'node-graph';
+    this._viewMode = 'filament-field';
     this._protoParticles = this._initProtoParticles();
 
     this._resizeHandler = () => this._resize();
@@ -238,7 +238,11 @@ export class NodeGraph {
   }
 
   setViewMode(mode) {
-    this._viewMode = mode === 'heatmap' ? 'heatmap' : 'node-graph';
+    if (mode === 'heatmap' || mode === 'node-graph' || mode === 'filament-field') {
+      this._viewMode = mode;
+      return;
+    }
+    this._viewMode = 'filament-field';
   }
 
   render(dt) {
@@ -263,9 +267,13 @@ export class NodeGraph {
       return;
     }
 
-    this._renderEdges(ctx);
-    this._renderNodes(ctx);
-    this._renderLabels(ctx);
+    if (this._viewMode === 'filament-field') {
+      this._renderFilamentField(ctx);
+    } else {
+      this._renderEdges(ctx);
+      this._renderNodes(ctx);
+      this._renderLabels(ctx);
+    }
 
     if (this.hoveredGalaxy) {
       this._renderTooltip(ctx, this.hoveredGalaxy);
@@ -281,7 +289,7 @@ export class NodeGraph {
     const cx = this.width / 2;
     const cy = this.height / 2;
     const age = this._cosmicAge;
-    const t = this._time;
+    const time = this._time;
 
     // Determine stage
     const stages = getPreGalaxyStages();
@@ -298,7 +306,7 @@ export class NodeGraph {
 
     // Central glow
     const glowR = Math.min(this.width, this.height) * (0.15 + formationProgress * 0.1);
-    const pulse = 1 + Math.sin(t * 1.5) * 0.08;
+    const pulse = 1 + Math.sin(time * 1.5) * 0.08;
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR * pulse);
 
     if (age < 0.01) {
@@ -319,7 +327,7 @@ export class NodeGraph {
 
     // Expanding ring for early universe
     if (age < 0.05) {
-      const ringT = (t * 0.3) % 1;
+      const ringT = (time * 0.3) % 1;
       const ringR = glowR * 0.3 + ringT * glowR * 0.8;
       ctx.beginPath();
       ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
@@ -363,8 +371,8 @@ export class NodeGraph {
     ctx.fillStyle = rgba(COLORS.accentCyan, 0.5);
     ctx.font = '10px "JetBrains Mono", monospace';
     const ageStr = age < 0.001 ? '< 1 MYA' :
-                   age < 1 ? `${(age * 1000).toFixed(0)} MYA` :
-                   `${age.toFixed(2)} BYA`;
+      age < 1 ? `${(age * 1000).toFixed(0)} MYA` :
+        `${age.toFixed(2)} BYA`;
     ctx.fillText(`${t('web.cosmicAge')}: ${ageStr}`, cx, cy + 105);
   }
 
@@ -561,9 +569,309 @@ export class NodeGraph {
           b = 0 + s * 255;
           a = 0.95;
         }
-        ctx.fillStyle = `rgba(${r|0}, ${g|0}, ${b|0}, ${a})`;
+        ctx.fillStyle = `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${a})`;
         ctx.fillRect(Math.floor(pos.x), Math.floor(pos.y), w, h);
       }
+    }
+  }
+
+  _renderFilamentField(ctx) {
+    const center = this._getWeightedScreenCenter();
+    this._renderFilamentBackdrop(ctx, center);
+    const field = this._computeSectorField(center, 18, 4);
+    this._renderSectorField(ctx, center, field);
+    this._renderFilamentStreams(ctx);
+    this._renderFilamentHubs(ctx);
+    this._renderFilamentLabels(ctx);
+  }
+
+  _getWeightedScreenCenter() {
+    if (this.galaxies.length === 0) {
+      return { x: this.width / 2, y: this.height / 2 };
+    }
+
+    let x = 0;
+    let y = 0;
+    let total = 0;
+    for (const g of this.galaxies) {
+      const pos = this._toScreen(g.x, g.y);
+      const weight = Math.max(0.1, Math.log10(Math.max(10, g.mass)));
+      x += pos.x * weight;
+      y += pos.y * weight;
+      total += weight;
+    }
+
+    if (total <= 0) {
+      return { x: this.width / 2, y: this.height / 2 };
+    }
+    return { x: x / total, y: y / total };
+  }
+
+  _renderFilamentBackdrop(ctx, center) {
+    const maxRadius = Math.max(80, Math.min(this.width, this.height) * 0.48);
+
+    const radial = ctx.createRadialGradient(
+      center.x,
+      center.y,
+      maxRadius * 0.1,
+      center.x,
+      center.y,
+      maxRadius
+    );
+    radial.addColorStop(0, 'rgba(14, 34, 58, 0.40)');
+    radial.addColorStop(0.55, 'rgba(8, 20, 36, 0.22)');
+    radial.addColorStop(1, 'rgba(2, 7, 14, 0)');
+    ctx.fillStyle = radial;
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    const ringCount = 4;
+    for (let i = 1; i <= ringCount; i++) {
+      const ringT = i / ringCount;
+      const pulse = 1 + Math.sin(this._time * 0.6 + i) * 0.015;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, maxRadius * ringT * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(85, 190, 255, ${0.08 - ringT * 0.012})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    const spokeCount = 18;
+    for (let i = 0; i < spokeCount; i++) {
+      const a = (i / spokeCount) * Math.PI * 2 + this._time * 0.01;
+      const x2 = center.x + Math.cos(a) * maxRadius;
+      const y2 = center.y + Math.sin(a) * maxRadius;
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = 'rgba(90, 165, 220, 0.035)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  _computeSectorField(center, sectorCount, ringCount) {
+    const maxRadius = Math.max(80, Math.min(this.width, this.height) * 0.48);
+    const values = new Float64Array(sectorCount * ringCount);
+
+    for (const g of this.galaxies) {
+      const pos = this._toScreen(g.x, g.y);
+      const dx = pos.x - center.x;
+      const dy = pos.y - center.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxRadius * 1.05) continue;
+
+      const angle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+      const sector = Math.min(sectorCount - 1, Math.floor((angle / (Math.PI * 2)) * sectorCount));
+      const ring = Math.min(ringCount - 1, Math.floor((dist / maxRadius) * ringCount));
+      const weight = Math.log10(Math.max(10, g.starCount || 10));
+      const coreIndex = ring * sectorCount + sector;
+
+      values[coreIndex] += weight;
+      values[ring * sectorCount + ((sector - 1 + sectorCount) % sectorCount)] += weight * 0.14;
+      values[ring * sectorCount + ((sector + 1) % sectorCount)] += weight * 0.14;
+    }
+
+    let maxValue = 0;
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] > maxValue) maxValue = values[i];
+    }
+
+    return {
+      values,
+      maxValue: maxValue || 1,
+      sectorCount,
+      ringCount,
+      maxRadius,
+    };
+  }
+
+  _renderSectorField(ctx, center, field) {
+    const { values, maxValue, sectorCount, ringCount, maxRadius } = field;
+    const gap = (Math.PI * 2) / sectorCount * 0.12;
+
+    for (let ring = 0; ring < ringCount; ring++) {
+      const innerR = (ring / ringCount) * maxRadius;
+      const outerR = ((ring + 1) / ringCount) * maxRadius;
+
+      for (let sector = 0; sector < sectorCount; sector++) {
+        const idx = ring * sectorCount + sector;
+        const value = values[idx];
+        if (value <= 0) continue;
+
+        const intensity = Math.min(1, value / maxValue);
+        const start = (sector / sectorCount) * Math.PI * 2 + gap * 0.5;
+        const end = ((sector + 1) / sectorCount) * Math.PI * 2 - gap * 0.5;
+        if (end <= start) continue;
+
+        const hue = 188 - intensity * 30;
+        const lightness = 32 + intensity * 28;
+        const alpha = 0.05 + intensity * 0.33;
+        ctx.fillStyle = `hsla(${hue}, 92%, ${lightness}%, ${alpha})`;
+
+        ctx.beginPath();
+        ctx.moveTo(center.x + Math.cos(start) * innerR, center.y + Math.sin(start) * innerR);
+        ctx.arc(center.x, center.y, outerR, start, end);
+        ctx.lineTo(center.x + Math.cos(end) * innerR, center.y + Math.sin(end) * innerR);
+        ctx.arc(center.x, center.y, innerR, end, start, true);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  _hashString(value) {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = ((hash << 5) - hash + value.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  }
+
+  _traceFilamentPath(ctx, from, to, key) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / dist;
+    const ny = dx / dist;
+    const hash = this._hashString(key);
+    const bendSeed = ((hash % 13) - 6) / 6;
+    const bend = Math.min(60, dist * 0.24) * bendSeed;
+    const sway = Math.sin(this._time * 0.7 + hash * 0.001) * 6;
+    const ctrlX = (from.x + to.x) / 2 + nx * (bend + sway);
+    const ctrlY = (from.y + to.y) / 2 + ny * (bend + sway);
+
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
+  }
+
+  _renderFilamentStreams(ctx) {
+    const galaxyMap = new Map(this.galaxies.map(g => [g.id, g]));
+    const rendered = new Set();
+
+    for (const g of this.galaxies) {
+      if (!g.connections || g.connections.length === 0) continue;
+
+      for (const connId of g.connections) {
+        const key = [g.id, connId].sort().join('-');
+        if (rendered.has(key)) continue;
+        rendered.add(key);
+
+        const target = galaxyMap.get(connId);
+        if (!target) continue;
+
+        const from = this._toScreen(g.x, g.y);
+        const to = this._toScreen(target.x, target.y);
+        if ((from.x < -60 && to.x < -60) ||
+          (from.x > this.width + 60 && to.x > this.width + 60) ||
+          (from.y < -60 && to.y < -60) ||
+          (from.y > this.height + 60 && to.y > this.height + 60)) {
+          continue;
+        }
+
+        const isHighlighted = this.hoveredGalaxy === g || this.hoveredGalaxy === target ||
+          this.selectedGalaxy === g || this.selectedGalaxy === target;
+        const massScale = Math.log10(Math.max(10, g.mass + target.mass)) / 13;
+        const strength = Math.max(0.2, Math.min(1, massScale));
+
+        this._traceFilamentPath(ctx, from, to, key);
+        ctx.strokeStyle = `rgba(70, 120, 200, ${0.10 + strength * 0.18})`;
+        ctx.lineWidth = (isHighlighted ? 5 : 3) + strength * 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        this._traceFilamentPath(ctx, from, to, key);
+        ctx.strokeStyle = isHighlighted
+          ? 'rgba(160, 240, 255, 0.95)'
+          : `rgba(125, 220, 255, ${0.28 + strength * 0.42})`;
+        ctx.lineWidth = (isHighlighted ? 2.4 : 1.1) + strength * 1.5;
+        ctx.stroke();
+
+        this._traceFilamentPath(ctx, from, to, key);
+        ctx.save();
+        ctx.setLineDash([10, 14]);
+        ctx.lineDashOffset = -((this._time * 95) + (this._hashString(key) % 40));
+        ctx.strokeStyle = isHighlighted
+          ? 'rgba(255, 255, 255, 0.9)'
+          : 'rgba(200, 245, 255, 0.55)';
+        ctx.lineWidth = isHighlighted ? 1.8 : 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  _renderFilamentHubs(ctx) {
+    let maxMass = 1;
+    for (const g of this.galaxies) {
+      const v = Math.log10(Math.max(10, g.mass));
+      if (v > maxMass) maxMass = v;
+    }
+
+    for (const g of this.galaxies) {
+      const pos = this._toScreen(g.x, g.y);
+      if (pos.x < -60 || pos.x > this.width + 60 || pos.y < -60 || pos.y > this.height + 60) {
+        continue;
+      }
+
+      const isHighlighted = g === this.hoveredGalaxy || g === this.selectedGalaxy;
+      const color = TYPE_COLORS[g.type] || COLORS.accentCyan;
+      const glow = TYPE_GLOW[g.type] || TYPE_GLOW.spiral;
+      const massT = Math.log10(Math.max(10, g.mass)) / maxMass;
+      const pulse = 1 + Math.sin(this._time * 2.1 + g.x * 8 + g.y * 10) * 0.08;
+      const radius = (3 + massT * 7) * pulse * (isHighlighted ? 1.25 : 1);
+
+      const halo = ctx.createRadialGradient(pos.x, pos.y, radius * 0.5, pos.x, pos.y, radius * 3.5);
+      halo.addColorStop(0, rgba(color, 0.35));
+      halo.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = halo;
+      ctx.fillRect(pos.x - radius * 3.5, pos.y - radius * 3.5, radius * 7, radius * 7);
+
+      if (isHighlighted) {
+        ctx.save();
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, radius * 1.35, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(color, 0.22);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(color, 0.9);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, radius * 0.45, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+  }
+
+  _renderFilamentLabels(ctx) {
+    const candidates = [...this.galaxies]
+      .sort((a, b) => b.mass - a.mass)
+      .slice(0, 4);
+    if (this.hoveredGalaxy && !candidates.includes(this.hoveredGalaxy)) {
+      candidates.push(this.hoveredGalaxy);
+    }
+    if (this.selectedGalaxy && !candidates.includes(this.selectedGalaxy)) {
+      candidates.push(this.selectedGalaxy);
+    }
+
+    for (const g of candidates) {
+      const pos = this._toScreen(g.x, g.y);
+      if (pos.x < 0 || pos.x > this.width || pos.y < 0 || pos.y > this.height) {
+        continue;
+      }
+
+      const isHighlighted = g === this.hoveredGalaxy || g === this.selectedGalaxy;
+      ctx.fillStyle = isHighlighted ? COLORS.textPrimary : rgba(COLORS.textSecondary, 0.92);
+      ctx.font = isHighlighted ? 'bold 12px "Space Grotesk", sans-serif' : '10px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(g.name, pos.x, pos.y - 12);
     }
   }
 
@@ -586,14 +894,14 @@ export class NodeGraph {
         const to = this._toScreen(target.x, target.y);
 
         if ((from.x < -50 && to.x < -50) ||
-            (from.x > this.width + 50 && to.x > this.width + 50) ||
-            (from.y < -50 && to.y < -50) ||
-            (from.y > this.height + 50 && to.y > this.height + 50)) {
+          (from.x > this.width + 50 && to.x > this.width + 50) ||
+          (from.y < -50 && to.y < -50) ||
+          (from.y > this.height + 50 && to.y > this.height + 50)) {
           continue;
         }
 
         const isHighlighted = (this.hoveredGalaxy === g || this.hoveredGalaxy === target ||
-                               this.selectedGalaxy === g || this.selectedGalaxy === target);
+          this.selectedGalaxy === g || this.selectedGalaxy === target);
 
         ctx.beginPath();
         ctx.moveTo(from.x, from.y);
@@ -640,7 +948,7 @@ export class NodeGraph {
       const pos = this._toScreen(g.x, g.y);
 
       if (pos.x < -50 || pos.x > this.width + 50 ||
-          pos.y < -50 || pos.y > this.height + 50) {
+        pos.y < -50 || pos.y > this.height + 50) {
         continue;
       }
 
@@ -697,7 +1005,7 @@ export class NodeGraph {
       const pos = this._toScreen(g.x, g.y);
 
       if (pos.x < 0 || pos.x > this.width ||
-          pos.y < 0 || pos.y > this.height) {
+        pos.y < 0 || pos.y > this.height) {
         continue;
       }
 
@@ -812,6 +1120,14 @@ export class NodeGraph {
     ctx.arcTo(x, y + h, x, y, radius);
     ctx.arcTo(x, y, x + w, y, radius);
     ctx.closePath();
+  }
+
+  show() {
+    if (this.canvas) this.canvas.style.display = 'block';
+  }
+
+  hide() {
+    if (this.canvas) this.canvas.style.display = 'none';
   }
 
   destroy() {
